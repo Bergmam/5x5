@@ -55,17 +55,20 @@ Helpers: `indexFromPos(pos, width)` and `posFromIndex(i, width)`.
 
 ## Generation pipeline (pure functions)
 1. `rng = createRng(seed)`
-2. Choose entrance/exit positions (fixed edges or random via RNG)
-3. `path = makePath(entrance, exit, rng)` — carve a guaranteed path
-4. Initialize all tiles as `floor`, mark path tiles `walkable`
-5. Place walls on candidate tiles (not on path) using `wallDensity` and RNG
-6. Place doors/traps/chests with placement heuristics (chests adjacent to path, traps off-path)
-7. Place entities (enemies/items) respecting `enemyBudget`, `chestBudget`, and placement constraints
-8. Validate (BFS solvability + budgets). If invalid, either retry with a deterministic counter or fall back to a safe template
-9. Return `MapFloor`
+2. Choose entrance/exit positions.
+   - **Multi-level rule**: Level N entrance must match Level N-1 exit coordinates.
+   - **Exit placement**: If not provided, choose a completely random tile (excluding entrance).
+3. Initialize all tiles as `wall`.
+4. `path = makePath(entrance, exit, rng)` — carve a guaranteed path (set to `floor`).
+5. **Carve Rooms**: Select random points and clear 2x2 or 3x3 areas (or just random tiles) to create open spaces, ensuring they connect to the path.
+   - Alternative: Just carve `floorDensity` % of remaining walls to create organic caves/ruins.
+6. Place doors/traps/chests with placement heuristics (chests adjacent to path, traps off-path).
+7. Place entities (enemies/items) respecting `enemyBudget`, `chestBudget`, and placement constraints.
+8. Validate (BFS solvability + budgets). If invalid, either retry with a deterministic counter or fall back to a safe template.
+9. Return `MapFloor`.
 
 ### Why carve the path first
-Guarantees solvability. For a 5×5 grid this is cheap and robust: create a biased random walk from entrance to exit and reserve those tiles as guaranteed walkable before adding obstacles.
+Guarantees solvability. Starting with walls and carving the path naturally creates corridors. Adding rooms afterwards creates the "dungeon" feel.
 
 ## makePath algorithm (reliable, simple)
 - Greedy-biased random walk that prefers steps toward the exit but occasionally detours to add variety.

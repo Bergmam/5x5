@@ -18,7 +18,7 @@ function indexFromPos(pos: Vec2, width: number) {
 const defaultConfig: GenerationConfig = {
   width: 5,
   height: 5,
-  wallDensity: 0.12,
+  wallDensity: 0.5,
   enemyBudget: 3,
   chestBudget: 1,
   minPathLength: 3
@@ -29,35 +29,58 @@ export function generateFloor(seed: string | number, cfg?: Partial<GenerationCon
   const rng = createRng(seed);
 
   const entrance: Vec2 = config.entrance ?? { x: 0, y: Math.floor(config.height / 2) };
-  const exit: Vec2 = config.exit ?? { x: config.width - 1, y: Math.floor(config.height / 2) };
+  
+  // Smart exit placement if not provided
+  let exit: Vec2;
+  if (config.exit) {
+    exit = config.exit;
+  } else {
+    // Completely random exit, but not entrance
+    const candidates: Vec2[] = [];
+    for (let y = 0; y < config.height; y++) {
+      for (let x = 0; x < config.width; x++) {
+        if (x === entrance.x && y === entrance.y) continue;
+        candidates.push({ x, y });
+      }
+    }
+    exit = candidates[Math.floor(rng() * candidates.length)];
+  }
 
   const path = makePath(entrance, exit, config.width, config.height, rng, config.minPathLength);
   const pathSet = new Set(path.map((p) => `${p.x},${p.y}`));
 
-  // init tiles as floor
+  // init tiles as walls
   const tiles: Tile[] = [];
   for (let y = 0; y < config.height; y++) {
     for (let x = 0; x < config.width; x++) {
-      const kind: TileKind = pathSet.has(`${x},${y}`)
-        ? 'floor'
-        : 'floor';
-      tiles.push({ pos: { x, y }, kind, walkable: true });
+      // Path tiles are floor, others start as wall
+      const isPath = pathSet.has(`${x},${y}`);
+      const kind: TileKind = isPath ? 'floor' : 'wall';
+      tiles.push({ pos: { x, y }, kind, walkable: isPath });
     }
   }
 
   // mark entrance/exit tiles
   tiles[indexFromPos(entrance, config.width)].kind = 'entrance';
   tiles[indexFromPos(exit, config.width)].kind = 'exit';
+  tiles[indexFromPos(entrance, config.width)].walkable = true;
+  tiles[indexFromPos(exit, config.width)].walkable = true;
 
-  // place walls off-path with some probability
+  // Carve rooms/random floors
+  // Iterate non-path tiles and randomly turn them into floors
   for (let i = 0; i < tiles.length; i++) {
     const t = tiles[i];
     const key = `${t.pos.x},${t.pos.y}`;
-    if (key === `${entrance.x},${entrance.y}` || key === `${exit.x},${exit.y}`) continue;
+    
+    // Skip path, entrance, exit (already handled/protected)
     if (pathSet.has(key)) continue;
-    if (rng() < config.wallDensity) {
-      t.kind = 'wall';
-      t.walkable = false;
+    if (key === `${entrance.x},${entrance.y}` || key === `${exit.x},${exit.y}`) continue;
+
+    // wallDensity is now "probability of staying a wall"
+    // So if rng() > wallDensity, it becomes floor
+    if (rng() > config.wallDensity) {
+      t.kind = 'floor';
+      t.walkable = true;
     }
   }
 

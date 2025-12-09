@@ -30,3 +30,59 @@ describe('Generator basic', () => {
     expect(v.errors.length).toBe(0);
   });
 });
+
+describe('Generator constraints', () => {
+  it('respects provided entrance and exit', () => {
+    const entrance = { x: 1, y: 1 };
+    const exit = { x: 3, y: 3 };
+    const floor = generateFloor('seed-config', { entrance, exit, width: 5, height: 5 });
+    
+    expect(floor.entrance).toEqual(entrance);
+    expect(floor.exit).toEqual(exit);
+    
+    const entranceTile = floor.tiles.find(t => t.pos.x === entrance.x && t.pos.y === entrance.y);
+    const exitTile = floor.tiles.find(t => t.pos.x === exit.x && t.pos.y === exit.y);
+    
+    expect(entranceTile?.kind).toBe('entrance');
+    expect(exitTile?.kind).toBe('exit');
+  });
+
+  it('respects entity budgets', () => {
+    const config = { enemyBudget: 2, chestBudget: 1 };
+    const floor = generateFloor('seed-budget', config);
+    
+    const enemies = floor.entities.filter(e => e.kind === 'enemy');
+    const items = floor.entities.filter(e => e.kind === 'item');
+    
+    expect(enemies.length).toBeLessThanOrEqual(config.enemyBudget);
+    expect(items.length).toBeLessThanOrEqual(config.chestBudget);
+  });
+
+  it('places entities on walkable tiles only', () => {
+    const floor = generateFloor('seed-entities');
+    
+    for (const entity of floor.entities) {
+      const tile = floor.tiles.find(t => t.pos.x === entity.pos.x && t.pos.y === entity.pos.y);
+      expect(tile?.walkable).toBe(true);
+      expect(tile?.kind).not.toBe('wall');
+    }
+  });
+
+  it('does not place entities on entrance or exit', () => {
+    const floor = generateFloor('seed-overlap');
+    
+    for (const entity of floor.entities) {
+      const isEntrance = entity.pos.x === floor.entrance.x && entity.pos.y === floor.entrance.y;
+      const isExit = entity.pos.x === floor.exit.x && entity.pos.y === floor.exit.y;
+      expect(isEntrance).toBe(false);
+      expect(isExit).toBe(false);
+    }
+  });
+
+  it('ensures entrance and exit are distinct', () => {
+    for(let i=0; i<10; i++) {
+       const floor = generateFloor(`seed-distinct-${i}`);
+       expect(floor.entrance).not.toEqual(floor.exit);
+    }
+ });
+});

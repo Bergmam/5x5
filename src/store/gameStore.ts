@@ -57,7 +57,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const newFloor = generateFloor(floorSeed, {
       width: 5,
       height: 5,
-      wallDensity: 0.15,
+      wallDensity: 0.5, // Increased density for dungeon feel
       enemyBudget: 3,
       chestBudget: 2,
       minPathLength: 5,
@@ -82,16 +82,20 @@ export const useGameStore = create<GameState>((set, get) => ({
     const nextFloorNum = state.floorNumber + 1;
     const floorSeed = `floor-${nextFloorNum}-${Date.now()}`;
     
+    // Use current exit as new entrance if available
+    const newEntrance = state.floor ? state.floor.exit : undefined;
+
     const newFloor = generateFloor(floorSeed, {
       width: 5,
       height: 5,
-      wallDensity: 0.15,
-      enemyBudget: 3,
+      wallDensity: 0.5, // Increased density for dungeon feel
+      enemyBudget: 3 + Math.floor(nextFloorNum / 2), // Scale difficulty
       chestBudget: 2,
       minPathLength: 5,
+      entrance: newEntrance,
     });
 
-    // Keep player stats but reset position
+    // Keep player stats but reset position to new entrance
     const updatedPlayer = { ...state.player };
     updatedPlayer.pos = { ...newFloor.entrance };
 
