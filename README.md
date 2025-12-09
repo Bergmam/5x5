@@ -1,10 +1,10 @@
-# 25 Tiles: Sigils of Descent
+# 5x5
 
 ## High-level Summary
-This document captures the updated design outline for "25 Tiles: Sigils of Descent", a web-based, 2D roguelike RPG built around the motif of 25-tile modules. This revision enforces that all stats and numeric values are always multiples of 5, simplifies combat to flat deterministic damage values, defines core stats and abilities, and clarifies inventory/ability behavior.
+This document captures the updated design outline for "5x5", a web-based, 2D roguelike RPG built around the motif of 25-tile modules. This revision enforces that all stats and numeric values are always multiples of 5, simplifies combat to flat deterministic damage values, defines core stats and abilities, and clarifies inventory/ability behavior.
 
 ## Core Concepts
-- Title / Theme: "25 Tiles: Sigils of Descent"
+- Title / Theme: "5x5"
 - Platform: Web (browser)
 - Perspective: 2D, top-down
 - Primary playfield: a 5×5 tile grid (one 25-tile module) representing a dungeon floor

@@ -8,6 +8,7 @@ interface GameState {
   player: Player;
   floor: MapFloor | null;
   turnCount: number;
+  floorNumber: number;
   gameStarted: boolean;
   gameOver: boolean;
   victoryMessage: string | null;
@@ -15,6 +16,7 @@ interface GameState {
   // Actions
   startNewGame: (seed?: string) => void;
   movePlayer: (direction: Direction) => MoveResult;
+  nextFloor: () => void;
   resetGame: () => void;
 }
 
@@ -34,12 +36,13 @@ export const useGameStore = create<GameState>((set, get) => ({
   player: createInitialPlayer(),
   floor: null,
   turnCount: 0,
+  floorNumber: 1,
   gameStarted: false,
   gameOver: false,
   victoryMessage: null,
 
   startNewGame: (seed?: string) => {
-    const floorSeed = seed || `floor-${Date.now()}`;
+    const floorSeed = seed || `floor-1-${Date.now()}`;
     const newFloor = generateFloor(floorSeed, {
       width: 5,
       height: 5,
@@ -56,9 +59,35 @@ export const useGameStore = create<GameState>((set, get) => ({
       player: newPlayer,
       floor: newFloor,
       turnCount: 0,
+      floorNumber: 1,
       gameStarted: true,
       gameOver: false,
       victoryMessage: null,
+    });
+  },
+
+  nextFloor: () => {
+    const state = get();
+    const nextFloorNum = state.floorNumber + 1;
+    const floorSeed = `floor-${nextFloorNum}-${Date.now()}`;
+    
+    const newFloor = generateFloor(floorSeed, {
+      width: 5,
+      height: 5,
+      wallDensity: 0.15,
+      enemyBudget: 3,
+      chestBudget: 2,
+      minPathLength: 5,
+    });
+
+    // Keep player stats but reset position
+    const updatedPlayer = { ...state.player };
+    updatedPlayer.pos = { ...newFloor.entrance };
+
+    set({
+      player: updatedPlayer,
+      floor: newFloor,
+      floorNumber: nextFloorNum,
     });
   },
 
@@ -76,12 +105,9 @@ export const useGameStore = create<GameState>((set, get) => ({
         turnCount: state.turnCount + 1,
       }));
 
-      // Check for victory condition
+      // Check for exit - generate next floor
       if (result.triggeredExit) {
-        set({
-          gameOver: true,
-          victoryMessage: 'Floor completed! You reached the exit.',
-        });
+        get().nextFloor();
       }
 
       // Handle trap damage (placeholder - will be expanded with combat system)
@@ -115,6 +141,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       player: createInitialPlayer(),
       floor: null,
       turnCount: 0,
+      floorNumber: 1,
       gameStarted: false,
       gameOver: false,
       victoryMessage: null,
