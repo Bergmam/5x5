@@ -1,4 +1,10 @@
-import { Vec2, MapFloor, EntityBase, Tile } from './types';
+import { Vec2, MapFloor, EntityBase, Tile, InventoryItem } from './types';
+import type { Player } from './types';
+import { addItem } from './inventory';
+import { getItemById } from '../data/itemLoader';
+
+// Re-export Player type for convenience
+export type { Player };
 
 // Direction constants for 4-directional movement
 export const DIRECTIONS = {
@@ -10,23 +16,11 @@ export const DIRECTIONS = {
 
 export type Direction = typeof DIRECTIONS[keyof typeof DIRECTIONS];
 
-export interface Player {
-  pos: Vec2;
-  hp: number;
-  maxHp: number;
-  mp: number;
-  maxMp: number;
-  weaponDamage: number;
-  spellDamage: number;
-  armor: number;
-  inventory: EntityBase[];
-}
-
 export interface MoveResult {
   success: boolean;
   reason?: string;
   newPos?: Vec2;
-  pickedUpItem?: EntityBase;
+  pickedUpItem?: InventoryItem;
   triggeredTrap?: boolean;
   triggeredExit?: boolean;
   attackedEnemy?: EntityBase;
@@ -112,17 +106,26 @@ export function attemptMove(
     };
   }
 
-  let pickedUpItem: EntityBase | undefined;
+  let pickedUpItem: InventoryItem | undefined;
   if (entityAtTarget?.kind === 'item') {
-    // Pick up item if inventory has space (25 slots)
-    if (player.inventory.length < 25) {
-      pickedUpItem = entityAtTarget;
-      // Remove from floor entities
-      const idx = floor.entities.indexOf(entityAtTarget);
-      if (idx !== -1) {
-        floor.entities.splice(idx, 1);
+    // Get item definition from itemLoader
+    const itemId = entityAtTarget.data?.itemId as string | undefined;
+    if (itemId) {
+      const itemDef = getItemById(itemId);
+      if (itemDef) {
+        // Try to add item to inventory
+        const newInventory = addItem(player.inventory, itemDef);
+        if (newInventory) {
+          pickedUpItem = itemDef;
+          player.inventory = newInventory;
+          // Remove from floor entities
+          const idx = floor.entities.indexOf(entityAtTarget);
+          if (idx !== -1) {
+            floor.entities.splice(idx, 1);
+          }
+        }
+        // If inventory is full, newInventory will be null and item stays on floor
       }
-      player.inventory.push(entityAtTarget);
     }
   }
 

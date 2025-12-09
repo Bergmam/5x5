@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import { MapFloor } from '../game/types';
+import { MapFloor, InventoryItem } from '../game/types';
 import { Player, attemptMove, Direction, MoveResult } from '../game/movement';
 import { generateFloor } from '../game/generator';
+import { useItem as applyItemUse, removeItem, getInventoryCount } from '../game/inventory';
 
 interface GameState {
   // Current game state
@@ -13,11 +14,19 @@ interface GameState {
   gameOver: boolean;
   victoryMessage: string | null;
   
+  // Inventory UI state
+  inventoryOpen: boolean;
+  selectedItemSlot: number | null;
+  
   // Actions
   startNewGame: (seed?: string) => void;
   movePlayer: (direction: Direction) => MoveResult;
   nextFloor: () => void;
   resetGame: () => void;
+  toggleInventory: () => void;
+  selectItem: (slotIndex: number | null) => void;
+  useItem: (slotIndex: number) => void;
+  destroyItem: (slotIndex: number) => void;
 }
 
 const createInitialPlayer = (): Player => ({
@@ -29,7 +38,7 @@ const createInitialPlayer = (): Player => ({
   weaponDamage: 15,
   spellDamage: 20,
   armor: 5,
-  inventory: [],
+  inventory: Array(25).fill(null),
 });
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -40,6 +49,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   gameStarted: false,
   gameOver: false,
   victoryMessage: null,
+  inventoryOpen: false,
+  selectedItemSlot: null,
 
   startNewGame: (seed?: string) => {
     const floorSeed = seed || `floor-1-${Date.now()}`;
@@ -145,6 +156,63 @@ export const useGameStore = create<GameState>((set, get) => ({
       gameStarted: false,
       gameOver: false,
       victoryMessage: null,
+      inventoryOpen: false,
+      selectedItemSlot: null,
+    });
+  },
+
+  toggleInventory: () => {
+    set((state) => ({
+      inventoryOpen: !state.inventoryOpen,
+      selectedItemSlot: null, // Deselect when toggling
+    }));
+  },
+
+  selectItem: (slotIndex: number | null) => {
+    set({ selectedItemSlot: slotIndex });
+  },
+
+  useItem: (slotIndex: number) => {
+    const state = get();
+    const item = state.player.inventory[slotIndex];
+    
+    if (!item || item.kind !== 'consumable') {
+      return;
+    }
+
+    const { player: updatedPlayer, inventory: newInventory } = applyItemUse(
+      state.player,
+      slotIndex
+    );
+
+    set({
+      player: {
+        ...updatedPlayer,
+        inventory: newInventory,
+      },
+      selectedItemSlot: null,
+      turnCount: state.turnCount + 1, // Using an item consumes a turn
+    });
+
+    // TODO: Execute enemy turns after using item
+  },
+
+  destroyItem: (slotIndex: number) => {
+    const state = get();
+    const item = state.player.inventory[slotIndex];
+    
+    if (!item) {
+      return;
+    }
+
+    const newInventory = removeItem(state.player.inventory, slotIndex);
+
+    set({
+      player: {
+        ...state.player,
+        inventory: newInventory,
+      },
+      selectedItemSlot: null,
     });
   },
 }));

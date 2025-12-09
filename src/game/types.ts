@@ -49,3 +49,39 @@ export interface GenerationConfig {
   useTemplate?: boolean;
   templateId?: string;
 }
+
+export interface InventoryItem {
+  id: string; // unique item type id
+  name: string;
+  description: string;
+  icon: string; // emoji
+  rarity: 'common' | 'uncommon' | 'rare' | 'epic';
+  kind: 'consumable' | 'passive' | 'ability-granting' | 'relic';
+  
+  stats?: {
+    hpBonus?: number;
+    mpBonus?: number;
+    armorBonus?: number;
+    weaponDamageBonus?: number;
+    spellDamageBonus?: number;
+  };
+  
+  consumable?: {
+    healHp?: number;
+    restoreMp?: number;
+  };
+  
+  abilityId?: string;
+}
+
+export interface Player {
+  hp: number;
+  maxHp: number;
+  mp: number;
+  maxMp: number;
+  armor: number;
+  weaponDamage: number;
+  spellDamage: number;
+  pos: Vec2;
+  inventory: (InventoryItem | null)[]; // 25 slots
+}

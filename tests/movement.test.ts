@@ -156,20 +156,21 @@ describe('attemptMove', () => {
   });
 
   it('picks up item when moving onto item tile', () => {
-    // Add an item to the right
+    // Add an item to the right (with itemId reference)
     const item: EntityBase = {
       id: 'test-item',
       kind: 'item',
       pos: { x: 3, y: 2 },
-      data: { name: 'Health Potion' },
+      data: { itemId: 'healing-potion' },
     };
     floor.entities.push(item);
 
     player.pos = { x: 2, y: 2 };
     const result = attemptMove(player, DIRECTIONS.RIGHT, floor);
     expect(result.success).toBe(true);
-    expect(result.pickedUpItem).toEqual(item);
-    expect(player.inventory).toContain(item);
+    expect(result.pickedUpItem).toBeDefined();
+    expect(result.pickedUpItem?.id).toBe('healing-potion');
+    expect(player.inventory.filter(i => i !== null).length).toBe(1);
     expect(getEntityAt(floor, { x: 3, y: 2 })).toBeNull();
   });
 
@@ -216,18 +217,22 @@ describe('attemptMove', () => {
   });
 
   it('does not pick up item when inventory is full', () => {
-    // Fill inventory
+    // Fill inventory with test items
     player.inventory = Array.from({ length: 25 }, (_, i) => ({
       id: `filler-${i}`,
-      kind: 'item' as const,
-      pos: { x: 0, y: 0 },
+      name: 'Test Item',
+      description: 'A test item',
+      icon: '📦',
+      rarity: 'common' as const,
+      kind: 'passive' as const,
     }));
 
-    // Add an item to the right
+    // Add an item to the right (with itemId in data)
     const item: EntityBase = {
       id: 'test-item',
       kind: 'item',
       pos: { x: 3, y: 2 },
+      data: { itemId: 'healing-potion' }, // Reference to item definition
     };
     floor.entities.push(item);
 

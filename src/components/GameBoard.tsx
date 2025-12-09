@@ -3,15 +3,27 @@ import { useGameStore } from '../store/gameStore';
 import { DIRECTIONS } from '../game/movement';
 import { getTile } from '../game/movement';
 import { Tile, EntityBase } from '../game/types';
+import { getInventoryCount } from '../game/inventory';
+import InventoryPanel from './InventoryPanel';
 
 export function GameBoard() {
-  const { player, floor, turnCount, floorNumber, gameStarted, gameOver, victoryMessage, startNewGame, movePlayer, resetGame } = useGameStore();
+  const { player, floor, turnCount, floorNumber, gameStarted, gameOver, victoryMessage, startNewGame, movePlayer, resetGame, toggleInventory } = useGameStore();
 
   // Keyboard input handling
   useEffect(() => {
-    if (!gameStarted || gameOver) return;
+    if (!gameStarted) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Handle inventory toggle
+      if (e.key === 'i' || e.key === 'I' || e.key === 'Tab') {
+        e.preventDefault();
+        toggleInventory();
+        return;
+      }
+
+      // Don't handle movement if game is over
+      if (gameOver) return;
+
       // Prevent default browser behavior for arrow keys
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd'].includes(e.key)) {
         e.preventDefault();
@@ -43,7 +55,7 @@ export function GameBoard() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameStarted, gameOver, movePlayer]);
+  }, [gameStarted, gameOver, movePlayer, toggleInventory]);
 
   const renderTile = (tile: Tile, entities: EntityBase[]) => {
     const isPlayer = player.pos.x === tile.pos.x && player.pos.y === tile.pos.y;
@@ -170,9 +182,6 @@ export function GameBoard() {
         <div className="text-lg">
           <span className="font-semibold text-cyan-400">MP:</span> {player.mp}/{player.maxMp}
         </div>
-        <div className="text-lg">
-          <span className="font-semibold">Inventory:</span> {player.inventory.length}/25
-        </div>
       </div>
 
       {/* Game Board */}
@@ -187,15 +196,29 @@ export function GameBoard() {
         </div>
       </div>
 
+      {/* Right Side Button Container */}
+      <div className="fixed right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2">
+        <button
+          onClick={toggleInventory}
+          className="w-16 h-16 bg-gray-800 hover:bg-gray-700 border-2 border-gray-600 rounded flex items-center justify-center text-3xl transition-colors"
+          title="Toggle Inventory (I)"
+        >
+          🎒
+        </button>
+      </div>
+
       {/* Controls */}
       <div className="mt-6 text-center text-gray-400 space-y-2">
         <p className="text-sm">
-          <span className="font-semibold">Controls:</span> Arrow keys or WASD to move
+          <span className="font-semibold">Controls:</span> Arrow keys or WASD to move | I or Tab for Inventory
         </p>
         <p className="text-xs">
           Move to the <span className="text-blue-400 font-semibold">blue exit (↓)</span> to complete the floor
         </p>
       </div>
+
+      {/* Inventory Panel */}
+      <InventoryPanel />
     </div>
   );
 }

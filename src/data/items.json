@@ -1,0 +1,49 @@
+{
+  "items": [
+    {
+      "id": "healing-potion",
+      "name": "Healing Potion",
+      "description": "Restores 20 HP",
+      "icon": "🧪",
+      "rarity": "common",
+      "kind": "consumable",
+      "consumable": {
+        "healHp": 20
+      }
+    },
+    {
+      "id": "iron-plate",
+      "name": "Iron Plate",
+      "description": "A sturdy piece of metal",
+      "icon": "🛡️",
+      "rarity": "uncommon",
+      "kind": "passive",
+      "stats": {
+        "armorBonus": 5
+      }
+    },
+    {
+      "id": "sharp-blade",
+      "name": "Sharp Blade",
+      "description": "A well-honed weapon",
+      "icon": "🗡️",
+      "rarity": "rare",
+      "kind": "passive",
+      "stats": {
+        "weaponDamageBonus": 10
+      }
+    },
+    {
+      "id": "mana-crystal",
+      "name": "Mana Crystal",
+      "description": "Pulsing with arcane energy",
+      "icon": "💎",
+      "rarity": "epic",
+      "kind": "passive",
+      "stats": {
+        "mpBonus": 15,
+        "spellDamageBonus": 5
+      }
+    }
+  ]
+}

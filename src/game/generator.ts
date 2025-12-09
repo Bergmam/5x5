@@ -9,6 +9,7 @@ import {
   EntityBase
 } from './types';
 import { validateFloor } from './validate';
+import { getRandomItem } from '../data/itemLoader';
 
 function indexFromPos(pos: Vec2, width: number) {
   return pos.y * width + pos.x;
@@ -64,11 +65,17 @@ export function generateFloor(seed: string | number, cfg?: Partial<GenerationCon
   const entities: EntityBase[] = [];
   const candidateTiles = tiles.filter((t) => t.walkable && !pathSet.has(`${t.pos.x},${t.pos.y}`));
 
-  // place chests
+  // place items (formerly chests) - use items from JSON
   for (let c = 0; c < config.chestBudget; c++) {
     if (candidateTiles.length === 0) break;
     const t = candidateTiles[Math.floor(rng() * candidateTiles.length)];
-    entities.push({ id: `chest-${c}`, kind: 'item', pos: t.pos, data: { chest: true } });
+    const randomItem = getRandomItem(rng);
+    entities.push({ 
+      id: `item-${c}`, 
+      kind: 'item', 
+      pos: t.pos, 
+      data: { itemId: randomItem.id } 
+    });
   }
 
   // place enemies with minimum distance from entrance
