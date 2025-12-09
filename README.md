@@ -105,3 +105,20 @@ Examples:
 - Define initial base stat values and example starting presets (all multiples of 5).
 - Produce a small set of sample abilities (5 starter abilities) with deterministic effects and mana costs (multiples of 5).
 - Draft per-floor scaling tables for enemy stats, spawn budgets, and item rarities using increments of 5.
+
+## Split docs
+This README has been split into topic-specific files under the `docs/` folder for easier editing and navigation. The original content remains here; for detailed, focused sections see:
+
+- `docs/01-overview.md` — Project overview and goals
+- `docs/02-core-concepts.md` — Core gameplay motifs and constraints
+- `docs/03-stats.md` — Stat system and the multiples-of-5 rule
+- `docs/04-abilities-inventory.md` — Inventory rules and ability interactions
+- `docs/05-combat.md` — Deterministic combat rules and damage formula
+- `docs/06-items-rarity.md` — Item types and rarity tiers
+- `docs/07-enemies-bosses.md` — Enemy behaviours and boss placement rules
+- `docs/08-progression-unlocks.md` — Progression, presets, and persistence
+- `docs/09-map-ui.md` — Map, UI, and 5×5 module rules
+- `docs/10-balancing-tuning.md` — Balancing, tuning, and scaling notes
+- `docs/11-open-tasks.md` — Open design tasks and suggested next steps
+
+If you'd like any of the topic files split further, renamed, or moved into subfolders, tell me which ones and I'll update them.
