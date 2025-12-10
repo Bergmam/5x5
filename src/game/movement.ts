@@ -21,6 +21,8 @@ export interface MoveResult {
   reason?: string;
   newPos?: Vec2;
   pickedUpItem?: InventoryItem;
+  newInventory?: (InventoryItem | null)[];
+  itemEntityIdToRemove?: string;
   triggeredTrap?: boolean;
   triggeredExit?: boolean;
   attackedEnemy?: EntityBase;
@@ -107,30 +109,30 @@ export function attemptMove(
   }
 
   let pickedUpItem: InventoryItem | undefined;
+  let newInventory: (InventoryItem | null)[] | undefined;
+  let itemEntityIdToRemove: string | undefined;
+
   if (entityAtTarget?.kind === 'item') {
-    // Get item definition from itemLoader
-    const itemId = entityAtTarget.data?.itemId as string | undefined;
-    if (itemId) {
-      const itemDef = getItemById(itemId);
-      if (itemDef) {
-        // Try to add item to inventory
-        const newInventory = addItem(player.inventory, itemDef);
-        if (newInventory) {
-          pickedUpItem = itemDef;
-          player.inventory = newInventory;
-          // Remove from floor entities
-          const idx = floor.entities.indexOf(entityAtTarget);
-          if (idx !== -1) {
-            floor.entities.splice(idx, 1);
-          }
-        }
-        // If inventory is full, newInventory will be null and item stays on floor
+    // Get item definition from itemLoader or embedded data
+    const data = entityAtTarget.data as Record<string, unknown>;
+    const itemId = data?.itemId as string | undefined;
+    const embeddedItem = data?.item as InventoryItem | undefined;
+
+    const itemDef = embeddedItem || (itemId ? getItemById(itemId) : undefined);
+    if (itemDef) {
+      // Try to add item to inventory
+      const updatedInv = addItem(player.inventory, itemDef);
+      if (updatedInv) {
+        pickedUpItem = itemDef;
+        newInventory = updatedInv;
+        itemEntityIdToRemove = entityAtTarget.id;
       }
+      // If inventory is full, updatedInv will be null and item stays on floor
     }
   }
 
   // 5. Execute movement
-  player.pos = targetPos;
+  // player.pos = targetPos; // REMOVED MUTATION
 
   // 6. Handle special tiles
   let triggeredTrap = false;
@@ -150,6 +152,8 @@ export function attemptMove(
     success: true,
     newPos: targetPos,
     pickedUpItem,
+    newInventory,
+    itemEntityIdToRemove,
     triggeredTrap,
     triggeredExit,
   };

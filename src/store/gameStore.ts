@@ -125,8 +125,23 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     const result = attemptMove(state.player, direction, state.floor);
 
-    if (result.success) {
+    if (result.success && result.newPos) {
+      // Prepare updates
+      let updatedPlayer = { ...state.player, pos: result.newPos };
+      let updatedFloor = state.floor;
+
+      // Handle item pickup
+      if (result.newInventory && result.itemEntityIdToRemove) {
+        updatedPlayer.inventory = result.newInventory;
+        updatedFloor = {
+          ...state.floor,
+          entities: state.floor.entities.filter(e => e.id !== result.itemEntityIdToRemove)
+        };
+      }
+
       set((state) => ({
+        player: updatedPlayer,
+        floor: updatedFloor,
         turnCount: state.turnCount + 1,
       }));
 

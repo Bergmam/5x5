@@ -121,7 +121,7 @@ describe('attemptMove', () => {
     const result = attemptMove(player, DIRECTIONS.RIGHT, floor);
     expect(result.success).toBe(true);
     expect(result.newPos).toEqual({ x: 3, y: 2 });
-    expect(player.pos).toEqual({ x: 3, y: 2 });
+    // expect(player.pos).toEqual({ x: 3, y: 2 }); // No longer mutates
   });
 
   it('fails to move out of bounds', () => {
@@ -170,8 +170,15 @@ describe('attemptMove', () => {
     expect(result.success).toBe(true);
     expect(result.pickedUpItem).toBeDefined();
     expect(result.pickedUpItem?.id).toBe('healing-potion');
-    expect(player.inventory.filter(i => i !== null).length).toBe(1);
-    expect(getEntityAt(floor, { x: 3, y: 2 })).toBeNull();
+    
+    // Check return values instead of mutation
+    expect(result.newInventory).toBeDefined();
+    expect(result.newInventory?.filter(i => i !== null).length).toBe(1);
+    expect(result.itemEntityIdToRemove).toBe('test-item');
+    
+    // Verify no mutation
+    expect(player.inventory.length).toBe(0);
+    expect(getEntityAt(floor, { x: 3, y: 2 })).toEqual(item);
   });
 
   it('does not move when colliding with enemy', () => {
@@ -203,7 +210,7 @@ describe('attemptMove', () => {
     const result = attemptMove(player, DIRECTIONS.RIGHT, floor);
     expect(result.success).toBe(true);
     expect(result.triggeredTrap).toBe(true);
-    expect(player.pos).toEqual({ x: 3, y: 2 });
+    expect(result.newPos).toEqual({ x: 3, y: 2 });
   });
 
   it('triggers exit when moving onto exit tile', () => {
