@@ -18,11 +18,20 @@ export interface Tile {
   meta?: Record<string, unknown>;
 }
 
+export interface EnemyData {
+  hp: number;
+  maxHp: number;
+  damage: number;
+  armor: number;
+  xpValue: number;
+  level: number;
+}
+
 export interface EntityBase {
   id: string;
   kind: 'enemy' | 'item' | 'relic' | 'npc';
   pos: Vec2;
-  data?: Record<string, unknown>;
+  data?: Record<string, unknown> | EnemyData;
 }
 
 export interface MapFloor {
@@ -48,6 +57,7 @@ export interface GenerationConfig {
   exit?: Vec2;
   useTemplate?: boolean;
   templateId?: string;
+  floorNumber?: number;
 }
 
 export interface InventoryItem {

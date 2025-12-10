@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { MapFloor, InventoryItem } from '../game/types';
+import { MapFloor, InventoryItem, EnemyData } from '../game/types';
 import { Player, attemptMove, Direction, MoveResult } from '../game/movement';
 import { generateFloor } from '../game/generator';
 import { useItem as applyItemUse, removeItem, getInventoryCount } from '../game/inventory';
@@ -18,6 +18,13 @@ interface GameState {
   inventoryOpen: boolean;
   selectedItemSlot: number | null;
   
+  // Animation state
+  interaction: {
+    type: 'attack' | 'bump';
+    targetPos: { x: number; y: number };
+    timestamp: number;
+  } | null;
+
   // Actions
   startNewGame: (seed?: string) => void;
   movePlayer: (direction: Direction) => MoveResult;
@@ -51,6 +58,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   victoryMessage: null,
   inventoryOpen: false,
   selectedItemSlot: null,
+  interaction: null,
 
   startNewGame: (seed?: string) => {
     const floorSeed = seed || `floor-1-${Date.now()}`;
@@ -61,6 +69,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       enemyBudget: 3,
       chestBudget: 2,
       minPathLength: 5,
+      floorNumber: 1,
     });
 
     const newPlayer = createInitialPlayer();
@@ -93,6 +102,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       chestBudget: 2,
       minPathLength: 5,
       entrance: newEntrance,
+      floorNumber: nextFloorNum,
     });
 
     // Keep player stats but reset position to new entrance
@@ -146,6 +156,44 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       // TODO: Execute enemy turns here
       // For now, we'll skip enemy AI until combat system is implemented
+    } else if (result.attackedEnemy) {
+      // Handle attack
+      const enemy = result.attackedEnemy;
+      const player = state.player;
+      
+      // Calculate damage
+      const enemyData = enemy.data as EnemyData; 
+      const damage = Math.max(5, player.weaponDamage - (enemyData?.armor || 0));
+      
+      // Update enemy HP
+      const newHp = (enemyData?.hp || 0) - damage;
+      
+      // Update floor entities
+      // We map to update the specific enemy, then filter to remove dead ones
+      const newEntities = state.floor.entities.map(e => {
+        if (e.id === enemy.id) {
+          return { ...e, data: { ...e.data, hp: newHp } };
+        }
+        return e;
+      }).filter(e => {
+        if (e.kind !== 'enemy') return true;
+        const data = e.data as EnemyData;
+        return data.hp > 0;
+      });
+      
+      // Set interaction state for animation and update floor
+      set({
+        interaction: {
+          type: 'attack',
+          targetPos: enemy.pos,
+          timestamp: Date.now()
+        },
+        floor: {
+          ...state.floor,
+          entities: newEntities
+        },
+        turnCount: state.turnCount + 1
+      });
     }
 
     return result;

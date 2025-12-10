@@ -1,13 +1,23 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { DIRECTIONS } from '../game/movement';
 import { getTile } from '../game/movement';
-import { Tile, EntityBase } from '../game/types';
+import { Tile, EntityBase, EnemyData } from '../game/types';
 import { getInventoryCount } from '../game/inventory';
 import InventoryPanel from './InventoryPanel';
 
 export function GameBoard() {
-  const { player, floor, turnCount, floorNumber, gameStarted, gameOver, victoryMessage, startNewGame, movePlayer, resetGame, toggleInventory } = useGameStore();
+  const { player, floor, turnCount, floorNumber, gameStarted, gameOver, victoryMessage, interaction, startNewGame, movePlayer, resetGame, toggleInventory } = useGameStore();
+  const [animating, setAnimating] = useState(false);
+
+  // Reset animation state when interaction changes
+  useEffect(() => {
+    if (interaction) {
+      setAnimating(true);
+      const timer = setTimeout(() => setAnimating(false), 200);
+      return () => clearTimeout(timer);
+    }
+  }, [interaction]);
 
   // Keyboard input handling
   useEffect(() => {
@@ -98,10 +108,22 @@ export function GameBoard() {
     }
 
     // Entity overlay
+    let healthBar = null;
     if (entity) {
       if (entity.kind === 'enemy') {
         content = '⚔';
         textColor = 'text-red-400';
+        
+        // Health bar
+        const data = entity.data as EnemyData;
+        if (data && data.hp < data.maxHp) {
+          const pct = Math.max(0, Math.min(100, (data.hp / data.maxHp) * 100));
+          healthBar = (
+            <div className="absolute top-1 left-1 right-1 h-1 bg-gray-700 rounded-full overflow-hidden">
+              <div className="h-full bg-red-500 transition-all duration-200" style={{ width: `${pct}%` }} />
+            </div>
+          );
+        }
       } else if (entity.kind === 'item') {
         content = '◆';
         textColor = 'text-purple-400';
@@ -109,18 +131,31 @@ export function GameBoard() {
     }
 
     // Player overlay (highest priority)
+    let playerStyle = {};
     if (isPlayer) {
       content = '●';
       textColor = 'text-cyan-400 font-bold';
+      
+      if (animating && interaction && interaction.type === 'attack') {
+        const dx = interaction.targetPos.x - player.pos.x;
+        const dy = interaction.targetPos.y - player.pos.y;
+        playerStyle = {
+          transform: `translate(${dx * 8}px, ${dy * 8}px)`,
+          transition: 'transform 0.1s ease-in-out'
+        };
+      }
     }
 
     return (
       <div
         key={`${tile.pos.x}-${tile.pos.y}`}
-        className={`${bgColor} ${textColor} w-16 h-16 flex items-center justify-center border border-gray-700 text-2xl transition-colors duration-150`}
+        className={`${bgColor} ${textColor} w-16 h-16 flex items-center justify-center border border-gray-700 text-2xl transition-colors duration-150 relative`}
         title={`(${tile.pos.x}, ${tile.pos.y}) - ${tile.kind}`}
       >
-        {content}
+        {healthBar}
+        <div style={playerStyle} className={isPlayer ? "transition-transform" : ""}>
+          {content}
+        </div>
       </div>
     );
   };

@@ -6,7 +6,8 @@ import {
   Tile,
   TileKind,
   Vec2,
-  EntityBase
+  EntityBase,
+  EnemyData
 } from './types';
 import { validateFloor } from './validate';
 import { getRandomItem } from '../data/itemLoader';
@@ -106,12 +107,29 @@ export function generateFloor(seed: string | number, cfg?: Partial<GenerationCon
     return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
   }
   const enemyCandidates = tiles.filter((t) => t.walkable && manhattan(t.pos, entrance) >= 2 && t.kind !== 'entrance' && t.kind !== 'exit');
+  const floorNumber = config.floorNumber || 1;
+
   for (let e = 0; e < config.enemyBudget; e++) {
     if (enemyCandidates.length === 0) break;
     const pick = enemyCandidates[Math.floor(rng() * enemyCandidates.length)];
     // avoid placing two entities on same tile
     if (entities.find((x) => x.pos.x === pick.pos.x && x.pos.y === pick.pos.y)) continue;
-    entities.push({ id: `enemy-${e}`, kind: 'enemy', pos: pick.pos, data: { level: 1 } });
+    
+    const enemyData: EnemyData = {
+      hp: 5 * floorNumber,
+      maxHp: 5 * floorNumber,
+      damage: 5 * floorNumber,
+      armor: 0, // Armor could scale later
+      xpValue: 5 * floorNumber,
+      level: floorNumber
+    };
+
+    entities.push({ 
+      id: `enemy-${e}`, 
+      kind: 'enemy', 
+      pos: pick.pos, 
+      data: enemyData 
+    });
   }
 
   const floor: MapFloor = {
