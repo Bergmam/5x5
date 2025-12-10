@@ -25,6 +25,13 @@ export interface EnemyData {
   armor: number;
   xpValue: number;
   level: number;
+  ai?: 'static' | 'patrol' | 'follow';
+  spawnPos?: Vec2;
+  state?: {
+    mode: 'static' | 'patrol' | 'follow';
+    patrolIndex?: number;
+    lastHp?: number;
+  };
 }
 
 export interface EntityBase {

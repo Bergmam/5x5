@@ -121,7 +121,10 @@ export function generateFloor(seed: string | number, cfg?: Partial<GenerationCon
       damage: 5 * floorNumber,
       armor: 0, // Armor could scale later
       xpValue: 5 * floorNumber,
-      level: floorNumber
+      level: floorNumber,
+      ai: 'patrol',
+      spawnPos: { ...pick.pos },
+      state: { mode: 'patrol', patrolIndex: 0, lastHp: 5 * floorNumber }
     };
 
     entities.push({ 

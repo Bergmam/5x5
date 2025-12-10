@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { DIRECTIONS } from '../game/movement';
 import { getTile } from '../game/movement';
@@ -9,6 +9,41 @@ import InventoryPanel from './InventoryPanel';
 export function GameBoard() {
   const { player, floor, turnCount, floorNumber, gameStarted, gameOver, victoryMessage, interaction, startNewGame, movePlayer, resetGame, toggleInventory } = useGameStore();
   const [animating, setAnimating] = useState(false);
+  const TILE_SIZE = 64; // matches w-16 h-16 (~64px)
+
+  // Track previous positions to animate smooth movement
+  const prevPlayerPos = useRef(player.pos);
+  const prevEnemyPos = useRef<Map<string, { x: number; y: number }>>(new Map());
+  const recentMoveOffsets = useRef<Map<string, { dx: number; dy: number; at: number }>>(new Map());
+  const resetAnimatingIds = useRef<Set<string>>(new Set());
+
+  // Capture previous positions and compute move offsets when floor/entities update
+  useEffect(() => {
+    if (!floor) return;
+    const now = Date.now();
+
+    // Player movement offset
+    const pdx = player.pos.x - prevPlayerPos.current.x;
+    const pdy = player.pos.y - prevPlayerPos.current.y;
+    if (pdx !== 0 || pdy !== 0) {
+      recentMoveOffsets.current.set('player', { dx: pdx, dy: pdy, at: now });
+      prevPlayerPos.current = { ...player.pos };
+    }
+
+    // Enemy movement offsets
+    const last = prevEnemyPos.current;
+    const next = new Map<string, { x: number; y: number }>();
+    floor.entities.forEach((e) => {
+      next.set(e.id, { ...e.pos });
+      const prev = last.get(e.id);
+      if (prev && (prev.x !== e.pos.x || prev.y !== e.pos.y)) {
+        recentMoveOffsets.current.set(e.id, { dx: e.pos.x - prev.x, dy: e.pos.y - prev.y, at: now });
+        // prepare reset after mount
+        resetAnimatingIds.current.delete(e.id);
+      }
+    });
+    prevEnemyPos.current = next;
+  }, [floor, player.pos]);
 
   // Reset animation state when interaction changes
   useEffect(() => {
@@ -67,10 +102,7 @@ export function GameBoard() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [gameStarted, gameOver, movePlayer, toggleInventory]);
 
-  const renderTile = (tile: Tile, entities: EntityBase[]) => {
-    const isPlayer = player.pos.x === tile.pos.x && player.pos.y === tile.pos.y;
-    const entity = entities.find((e) => e.pos.x === tile.pos.x && e.pos.y === tile.pos.y);
-
+  const renderTile = (tile: Tile) => {
     let bgColor = 'bg-gray-800';
     let content = '';
     let textColor = 'text-gray-400';
@@ -107,55 +139,13 @@ export function GameBoard() {
         break;
     }
 
-    // Entity overlay
-    let healthBar = null;
-    if (entity) {
-      if (entity.kind === 'enemy') {
-        content = '⚔';
-        textColor = 'text-red-400';
-        
-        // Health bar
-        const data = entity.data as EnemyData;
-        if (data && data.hp < data.maxHp) {
-          const pct = Math.max(0, Math.min(100, (data.hp / data.maxHp) * 100));
-          healthBar = (
-            <div className="absolute top-1 left-1 right-1 h-1 bg-gray-700 rounded-full overflow-hidden">
-              <div className="h-full bg-red-500 transition-all duration-200" style={{ width: `${pct}%` }} />
-            </div>
-          );
-        }
-      } else if (entity.kind === 'item') {
-        content = '◆';
-        textColor = 'text-purple-400';
-      }
-    }
-
-    // Player overlay (highest priority)
-    let playerStyle = {};
-    if (isPlayer) {
-      content = '●';
-      textColor = 'text-cyan-400 font-bold';
-      
-      if (animating && interaction && interaction.type === 'attack') {
-        const dx = interaction.targetPos.x - player.pos.x;
-        const dy = interaction.targetPos.y - player.pos.y;
-        playerStyle = {
-          transform: `translate(${dx * 8}px, ${dy * 8}px)`,
-          transition: 'transform 0.1s ease-in-out'
-        };
-      }
-    }
-
     return (
       <div
         key={`${tile.pos.x}-${tile.pos.y}`}
         className={`${bgColor} ${textColor} w-16 h-16 flex items-center justify-center border border-gray-700 text-2xl transition-colors duration-150 relative`}
         title={`(${tile.pos.x}, ${tile.pos.y}) - ${tile.kind}`}
       >
-        {healthBar}
-        <div style={playerStyle} className={isPlayer ? "transition-transform" : ""}>
-          {content}
-        </div>
+        <div>{content}</div>
       </div>
     );
   };
@@ -219,15 +209,91 @@ export function GameBoard() {
         </div>
       </div>
 
-      {/* Game Board */}
-      <div className="bg-gray-900 p-4 rounded-lg shadow-xl border border-gray-700">
-        <div className="grid grid-cols-5 gap-0">
-          {Array.from({ length: floor.height }, (_, y) =>
-            Array.from({ length: floor.width }, (_, x) => {
-              const tile = getTile(floor, { x, y });
-              return tile ? renderTile(tile, floor.entities) : null;
-            })
-          )}
+      {/* Game Board with overlayed entities */}
+      <div className="bg-gray-900 rounded-lg shadow-xl border border-gray-700 p-4">
+        <div className="relative" style={{ width: TILE_SIZE * floor.width, height: TILE_SIZE * floor.height }}>
+          {/* Tiles grid */}
+          <div className="grid grid-cols-5 gap-0 absolute top-0 left-0 w-full h-full">
+            {Array.from({ length: floor.height }, (_, y) =>
+              Array.from({ length: floor.width }, (_, x) => {
+                const tile = getTile(floor, { x, y });
+                return tile ? renderTile(tile) : null;
+              })
+            )}
+          </div>
+
+          {/* Entities overlay layer aligned to grid */}
+          <div className="absolute top-0 left-0 w-full h-full">
+            {/* Player */}
+            <div
+              className="absolute text-cyan-400 font-bold text-2xl flex items-center justify-center"
+              style={{
+                left: player.pos.x * TILE_SIZE,
+                top: player.pos.y * TILE_SIZE,
+                width: TILE_SIZE,
+                height: TILE_SIZE,
+                transition: 'left 180ms ease-out, top 180ms ease-out',
+              }}
+              title="Player"
+            >
+              ●
+            </div>
+
+            {/* Enemies and items */}
+            {floor.entities.map((e) => {
+              if (e.kind === 'enemy') {
+                const data = e.data as EnemyData;
+                const showAggro = interaction?.type === 'enemy-aggro' && (data?.state?.mode ?? data?.ai) === 'follow' && (Math.abs(e.pos.x - player.pos.x) + Math.abs(e.pos.y - player.pos.y) <= 2);
+                return (
+                  <div
+                    key={e.id}
+                    className="absolute text-red-400 text-2xl flex items-center justify-center"
+                    style={{
+                      left: e.pos.x * TILE_SIZE,
+                      top: e.pos.y * TILE_SIZE,
+                      width: TILE_SIZE,
+                      height: TILE_SIZE,
+                      transition: 'left 180ms ease-out, top 180ms ease-out',
+                    }}
+                    title={`Enemy (${e.pos.x}, ${e.pos.y})`}
+                  >
+                    {/* Health bar when damaged */}
+                    {data && data.hp < data.maxHp && (
+                      <div className="absolute -top-3 left-0 right-0 h-1 bg-gray-700 rounded-full overflow-hidden" style={{ width: TILE_SIZE }}>
+                        <div className="h-full bg-red-500 transition-all duration-200" style={{ width: `${Math.max(0, Math.min(100, (data.hp / data.maxHp) * 100))}%` }} />
+                      </div>
+                    )}
+                    {/* Aggro cue */}
+                    {showAggro && (
+                      <div className="absolute -top-6 left-0 right-0 flex justify-center">
+                        <span className="text-yellow-300 animate-pulse enemy-jump" style={{ display: 'inline-block' }}>!</span>
+                      </div>
+                    )}
+                    ⚔
+                  </div>
+                );
+              }
+              if (e.kind === 'item') {
+                return (
+                  <div
+                    key={e.id}
+                    className="absolute text-purple-400 text-2xl flex items-center justify-center"
+                    style={{
+                      left: e.pos.x * TILE_SIZE,
+                      top: e.pos.y * TILE_SIZE,
+                      width: TILE_SIZE,
+                      height: TILE_SIZE,
+                      transition: 'left 180ms ease-out, top 180ms ease-out',
+                    }}
+                    title={`Item (${e.pos.x}, ${e.pos.y})`}
+                  >
+                    ◆
+                  </div>
+                );
+              }
+              return null;
+            })}
+          </div>
         </div>
       </div>
 

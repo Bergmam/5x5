@@ -3,6 +3,7 @@ import { MapFloor, InventoryItem, EnemyData } from '../game/types';
 import { Player, attemptMove, Direction, MoveResult } from '../game/movement';
 import { generateFloor } from '../game/generator';
 import { useItem as applyItemUse, removeItem, getInventoryCount } from '../game/inventory';
+import { runEnemyTurn as runEnemyTurnModule } from '../game/enemyAI';
 
 interface GameState {
   // Current game state
@@ -20,7 +21,7 @@ interface GameState {
   
   // Animation state
   interaction: {
-    type: 'attack' | 'bump';
+    type: 'attack' | 'bump' | 'enemy-aggro';
     targetPos: { x: number; y: number };
     timestamp: number;
   } | null;
@@ -169,8 +170,22 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
       }
 
-      // TODO: Execute enemy turns here
-      // For now, we'll skip enemy AI until combat system is implemented
+      // Run enemy turns after player movement
+      const postState = get();
+      if (postState.floor) {
+        const enemyProcessed = runEnemyTurnModule({
+          floor: postState.floor,
+          playerPos: postState.player.pos,
+          interaction: postState.interaction,
+        });
+        set(enemyProcessed);
+        // Auto-clear transient aggro interaction after a brief delay
+        if (enemyProcessed.interaction?.type === 'enemy-aggro') {
+          setTimeout(() => {
+            set((s) => ({ interaction: s.interaction?.type === 'enemy-aggro' ? null : s.interaction }));
+          }, 500);
+        }
+      }
     } else if (result.attackedEnemy) {
       // Handle attack
       const enemy = result.attackedEnemy;
@@ -209,6 +224,23 @@ export const useGameStore = create<GameState>((set, get) => ({
         },
         turnCount: state.turnCount + 1
       });
+
+      // Enemy reacts next turn immediately (damage trigger for follow)
+      const postState = get();
+      if (postState.floor) {
+        const enemyProcessed = runEnemyTurnModule({
+          floor: postState.floor,
+          playerPos: postState.player.pos,
+          interaction: postState.interaction,
+        });
+        set(enemyProcessed);
+        // Auto-clear transient aggro interaction after a brief delay
+        if (enemyProcessed.interaction?.type === 'enemy-aggro') {
+          setTimeout(() => {
+            set((s) => ({ interaction: s.interaction?.type === 'enemy-aggro' ? null : s.interaction }));
+          }, 500);
+        }
+      }
     }
 
     return result;

@@ -1,3 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Enemy aggro jump animation */
+@keyframes enemy-jump {
+	0% { transform: translateY(0); }
+	30% { transform: translateY(-6px); }
+	60% { transform: translateY(0); }
+	100% { transform: translateY(0); }
+}
+
+.enemy-jump {
+	animation: enemy-jump 180ms ease-out;
+}
