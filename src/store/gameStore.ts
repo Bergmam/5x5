@@ -5,6 +5,7 @@ import { generateFloor } from '../game/generator';
 import { useItem as applyItemUse, removeItem, getInventoryCount } from '../game/inventory';
 import { runEnemyTurn as runEnemyTurnModule } from '../game/enemyAI';
 import { calculateEffectiveStats, type PlayerStats } from '../game/stats';
+import { ABILITIES, getAbilityBarFromInventory, isDirectionalAbility, normalizeDirection, type AbilityId } from '../game/abilities';
 
 interface GameState {
   // Current game state
@@ -19,14 +20,19 @@ interface GameState {
   // Inventory UI state
   inventoryOpen: boolean;
   selectedItemSlot: number | null;
+
+  // Abilities
+  abilityBar: (AbilityId | null)[]; // 8 slots
+  lastMoveDirection: Direction | null;
   
   // Animation state
   interaction: {
-    type: 'attack' | 'bump' | 'enemy-aggro' | 'enemy-attack';
+    type: 'attack' | 'bump' | 'enemy-aggro' | 'enemy-attack' | 'ability';
     targetPos: { x: number; y: number };
     timestamp: number;
     attackerId?: string;
     aggroEnemyIds?: string[];
+    abilityId?: AbilityId;
   } | null;
 
   // Internal helper so non-movement actions (like items) can advance enemies too.
@@ -41,6 +47,7 @@ interface GameState {
   selectItem: (slotIndex: number | null) => void;
   useItem: (slotIndex: number) => void;
   destroyItem: (slotIndex: number) => void;
+  castAbility: (slotIndex: number) => void;
 }
 
 const createInitialPlayer = (): Player => ({
@@ -89,6 +96,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   selectedItemSlot: null,
   interaction: null,
 
+  abilityBar: getAbilityBarFromInventory(createInitialPlayer().inventory, 8),
+  lastMoveDirection: null,
+
   startNewGame: (seed?: string) => {
     const floorSeed = seed || `floor-1-${Date.now()}`;
     const newFloor = generateFloor(floorSeed, {
@@ -112,6 +122,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       gameStarted: true,
       gameOver: false,
       victoryMessage: null,
+      abilityBar: getAbilityBarFromInventory(newPlayer.inventory, 8),
+      lastMoveDirection: null,
     });
   },
 
@@ -202,6 +214,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     const result = attemptMove(state.player, direction, state.floor);
 
+  // Always update facing direction (even if the move is blocked/no-op).
+  // This lets directional abilities use the player's most recent intent.
+  set({ lastMoveDirection: normalizeDirection(direction) });
+
     if (result.success && result.newPos) {
       // Prepare updates
       let updatedPlayer = { ...state.player, pos: result.newPos };
@@ -221,6 +237,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         player: updatedPlayer,
         floor: updatedFloor,
         turnCount: state.turnCount + 1,
+        abilityBar: getAbilityBarFromInventory(updatedPlayer.inventory, 8),
       }));
 
       // Check for exit - generate next floor
@@ -296,8 +313,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   resetGame: () => {
+    const newPlayer = createInitialPlayer();
     set({
-      player: createInitialPlayer(),
+      player: newPlayer,
       floor: null,
       turnCount: 0,
       floorNumber: 1,
@@ -306,6 +324,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       victoryMessage: null,
       inventoryOpen: false,
       selectedItemSlot: null,
+      abilityBar: getAbilityBarFromInventory(newPlayer.inventory, 8),
+      lastMoveDirection: null,
     });
   },
 
@@ -390,6 +410,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       player: clampedPlayer,
       selectedItemSlot: null,
       turnCount: state.turnCount + 1, // Using an item consumes a turn
+      abilityBar: getAbilityBarFromInventory(clampedPlayer.inventory, 8),
     });
 
     // Enemies take their turn after item usage
@@ -406,12 +427,63 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     const newInventory = removeItem(state.player.inventory, slotIndex);
 
-    set({
-      player: clampResourcesToEffectiveMax({
-        ...state.player,
-        inventory: newInventory,
-      }),
-      selectedItemSlot: null,
+    const clamped = clampResourcesToEffectiveMax({
+      ...state.player,
+      inventory: newInventory,
     });
+
+    set({
+      player: clamped,
+      selectedItemSlot: null,
+      abilityBar: getAbilityBarFromInventory(clamped.inventory, 8),
+    });
+  },
+
+  castAbility: (slotIndex: number) => {
+    const state = get();
+    if (!state.floor || state.gameOver) return;
+    if (slotIndex < 0 || slotIndex >= state.abilityBar.length) return;
+
+    const abilityId = state.abilityBar[slotIndex];
+    if (!abilityId) return;
+
+    if (isDirectionalAbility(abilityId) && !state.lastMoveDirection) {
+      return;
+    }
+
+    const effective = getEffectivePlayerStats(state.player);
+    const def = ABILITIES[abilityId];
+
+    const mpCost = def.mpCost ?? 0;
+    if (mpCost > 0 && state.player.mp < mpCost) {
+      return;
+    }
+
+    const result = def.execute({
+      floor: state.floor,
+      playerPos: state.player.pos,
+      facing: state.lastMoveDirection,
+      effectiveStats: effective,
+    });
+
+    if (!result.didCast) return;
+
+    set((s) => ({
+      floor: s.floor
+        ? {
+            ...s.floor,
+            entities: result.entities,
+          }
+        : s.floor,
+      interaction: result.interaction || s.interaction,
+      player: {
+        ...s.player,
+        mp: Math.max(0, s.player.mp - mpCost),
+      },
+      turnCount: s.turnCount + 1,
+    }));
+
+    // Casting an ability consumes the player's turn.
+    get()._runEnemyTurnAfterPlayerAction();
   },
 }));

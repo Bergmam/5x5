@@ -10,6 +10,7 @@ import { getItemById } from '../data/itemLoader';
 import StatsPanel from './StatsPanel';
 import { calculateEffectiveStats } from '../game/stats';
 import EnemyTooltip from './EnemyTooltip';
+import AbilityBar from './AbilityBar';
 
 export function GameBoard() {
   const { player, floor, floorNumber, gameStarted, gameOver, victoryMessage, interaction, startNewGame, movePlayer, resetGame, toggleInventory } = useGameStore();
@@ -248,6 +249,9 @@ export function GameBoard() {
       <div className="fixed left-4 top-1/2 -translate-y-1/2 hidden md:block">
         <StatsPanel stats={effectiveStats} />
       </div>
+
+      {/* Bottom ability bar */}
+      <AbilityBar />
 
       {/* Game Board with overlayed entities */}
       <div className="bg-gray-900 rounded-lg shadow-xl border border-gray-700 p-4">

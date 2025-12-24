@@ -44,6 +44,24 @@
         "maxMp": 15,
         "spellDamage": 5
       }
+    },
+    {
+      "id": "fireball-scroll",
+      "name": "Scroll of Fireball",
+      "description": "Grants the Fireball ability while carried",
+      "icon": "🔥",
+      "rarity": "uncommon",
+      "kind": "ability-granting",
+      "abilityId": "fireball"
+    },
+    {
+      "id": "shockwave-totem",
+      "name": "Shockwave Totem",
+      "description": "Grants the Shockwave ability while carried",
+      "icon": "💥",
+      "rarity": "rare",
+      "kind": "ability-granting",
+      "abilityId": "shockwave"
     }
   ]
 }
