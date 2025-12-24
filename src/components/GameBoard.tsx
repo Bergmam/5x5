@@ -9,12 +9,17 @@ import type { InventoryItem } from '../game/types';
 import { getItemById } from '../data/itemLoader';
 import StatsPanel from './StatsPanel';
 import { calculateEffectiveStats } from '../game/stats';
+import EnemyTooltip from './EnemyTooltip';
 
 export function GameBoard() {
   const { player, floor, floorNumber, gameStarted, gameOver, victoryMessage, interaction, startNewGame, movePlayer, resetGame, toggleInventory } = useGameStore();
   const [animating, setAnimating] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<{
     item: InventoryItem;
+    position: { x: number; y: number };
+  } | null>(null);
+  const [hoveredEnemy, setHoveredEnemy] = useState<{
+    enemy: EnemyData;
     position: { x: number; y: number };
   } | null>(null);
   const TILE_SIZE = 64; // matches w-16 h-16 (~64px)
@@ -284,6 +289,19 @@ export function GameBoard() {
                       transform: isAttacking && attackElapsed < 90 ? `translate(${attackDx * 14}px, ${attackDy * 14}px)` : 'translate(0, 0)'
                     }}
                     title={`Enemy (${e.pos.x}, ${e.pos.y})`}
+                    onMouseEnter={(event) => {
+                      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+                      setHoveredEnemy({
+                        enemy: data,
+                        position: {
+                          x: rect.left - 10,
+                          y: rect.top,
+                        },
+                      });
+                      // Ensure we don't show two tooltips at once.
+                      setHoveredItem(null);
+                    }}
+                    onMouseLeave={() => setHoveredEnemy(null)}
                   >
                     {/* Health bar when damaged */}
                     {data && data.hp < data.maxHp && (
@@ -333,6 +351,8 @@ export function GameBoard() {
                           y: rect.top,
                         },
                       });
+                      // Ensure we don't show two tooltips at once.
+                      setHoveredEnemy(null);
                     }}
                     onMouseLeave={() => setHoveredItem(null)}
                   >
@@ -370,6 +390,10 @@ export function GameBoard() {
       {/* Tooltip - appears on hover */}
       {hoveredItem && (
         <ItemTooltip item={hoveredItem.item} position={hoveredItem.position} />
+      )}
+
+      {hoveredEnemy && (
+        <EnemyTooltip enemy={hoveredEnemy.enemy} position={hoveredEnemy.position} />
       )}
     </div>
   );
