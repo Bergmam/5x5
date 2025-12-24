@@ -58,6 +58,29 @@ describe('Generator constraints', () => {
     expect(items.length).toBeLessThanOrEqual(config.chestBudget);
   });
 
+  it('never places overlapping entities (unique positions)', () => {
+    // Run multiple seeds to catch random collisions.
+    for (let i = 0; i < 200; i++) {
+      const floor = generateFloor(`no-overlap-${i}`, {
+        width: 5,
+        height: 5,
+        wallDensity: 0.4,
+        // Stress a bit: multiple entities.
+        chestBudget: 6,
+        enemyBudget: 6,
+        minPathLength: 3,
+        floorNumber: 1,
+      });
+
+      const seen = new Set<string>();
+      for (const e of floor.entities) {
+        const key = `${e.pos.x},${e.pos.y}`;
+        expect(seen.has(key)).toBe(false);
+        seen.add(key);
+      }
+    }
+  });
+
   it('places entities on walkable tiles only', () => {
     const floor = generateFloor('seed-entities');
     

@@ -87,12 +87,21 @@ export function generateFloor(seed: string | number, cfg?: Partial<GenerationCon
 
   // place chests near path
   const entities: EntityBase[] = [];
-  const candidateTiles = tiles.filter((t) => t.walkable && !pathSet.has(`${t.pos.x},${t.pos.y}`));
+  const occupied = new Set<string>([`${entrance.x},${entrance.y}`, `${exit.x},${exit.y}`]);
+  const candidateTiles = tiles.filter((t) => t.walkable && !pathSet.has(`${t.pos.x},${t.pos.y}`) && !occupied.has(`${t.pos.x},${t.pos.y}`));
 
   // place items (formerly chests) - use items from JSON
   for (let c = 0; c < config.chestBudget; c++) {
     if (candidateTiles.length === 0) break;
-    const t = candidateTiles[Math.floor(rng() * candidateTiles.length)];
+    const idx = Math.floor(rng() * candidateTiles.length);
+    const t = candidateTiles[idx];
+    const key = `${t.pos.x},${t.pos.y}`;
+    // Remove from candidate pool so items can't stack on the same location.
+    candidateTiles.splice(idx, 1);
+    if (occupied.has(key)) {
+      c--;
+      continue;
+    }
     const randomItem = getRandomItem(rng);
     entities.push({ 
       id: `item-${c}`, 
@@ -100,6 +109,7 @@ export function generateFloor(seed: string | number, cfg?: Partial<GenerationCon
       pos: t.pos, 
       data: { itemId: randomItem.id } 
     });
+    occupied.add(key);
   }
 
   // place enemies with minimum distance from entrance
@@ -113,7 +123,7 @@ export function generateFloor(seed: string | number, cfg?: Partial<GenerationCon
     if (enemyCandidates.length === 0) break;
     const pick = enemyCandidates[Math.floor(rng() * enemyCandidates.length)];
     // avoid placing two entities on same tile
-    if (entities.find((x) => x.pos.x === pick.pos.x && x.pos.y === pick.pos.y)) continue;
+  if (occupied.has(`${pick.pos.x},${pick.pos.y}`)) continue;
     
     const enemyData: EnemyData = {
       hp: 5 * floorNumber,
@@ -133,6 +143,7 @@ export function generateFloor(seed: string | number, cfg?: Partial<GenerationCon
       pos: pick.pos, 
       data: enemyData 
     });
+    occupied.add(`${pick.pos.x},${pick.pos.y}`);
   }
 
   const floor: MapFloor = {
