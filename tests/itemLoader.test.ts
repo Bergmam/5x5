@@ -68,7 +68,7 @@ describe('Item Loader', () => {
         expect(item.name).toBe('Iron Plate');
         expect(item.kind).toBe('passive');
         expect(item.rarity).toBe('uncommon');
-        expect(item.stats?.armorBonus).toBe(5);
+        expect(item.stats?.armor).toBe(5);
       }
     });
 
@@ -81,7 +81,7 @@ describe('Item Loader', () => {
         expect(item.name).toBe('Sharp Blade');
         expect(item.kind).toBe('passive');
         expect(item.rarity).toBe('rare');
-        expect(item.stats?.weaponDamageBonus).toBe(10);
+        expect(item.stats?.weaponDamage).toBe(10);
       }
     });
 
@@ -94,8 +94,8 @@ describe('Item Loader', () => {
         expect(item.name).toBe('Mana Crystal');
         expect(item.kind).toBe('passive');
         expect(item.rarity).toBe('epic');
-        expect(item.stats?.mpBonus).toBe(15);
-        expect(item.stats?.spellDamageBonus).toBe(5);
+        expect(item.stats?.maxMp).toBe(15);
+        expect(item.stats?.spellDamage).toBe(5);
       }
     });
 

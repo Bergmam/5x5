@@ -34,7 +34,7 @@ describe('Inventory System', () => {
     rarity: 'uncommon',
     kind: 'passive',
     stats: {
-      armorBonus: 5,
+      armor: 5,
     },
   };
 
@@ -46,7 +46,7 @@ describe('Inventory System', () => {
     rarity: 'rare',
     kind: 'passive',
     stats: {
-      weaponDamageBonus: 10,
+      weaponDamage: 10,
     },
   };
 
@@ -58,8 +58,8 @@ describe('Inventory System', () => {
     rarity: 'epic',
     kind: 'passive',
     stats: {
-      mpBonus: 15,
-      spellDamageBonus: 5,
+      maxMp: 15,
+      spellDamage: 5,
     },
   };
 
@@ -469,8 +469,8 @@ describe('Inventory System', () => {
         expect(retrievedItem).toEqual(manaCrystal);
         expect(retrievedItem?.id).toBe('mana-crystal');
         expect(retrievedItem?.rarity).toBe('epic');
-        expect(retrievedItem?.stats?.mpBonus).toBe(15);
-        expect(retrievedItem?.stats?.spellDamageBonus).toBe(5);
+        expect(retrievedItem?.stats?.maxMp).toBe(15);
+        expect(retrievedItem?.stats?.spellDamage).toBe(5);
       }
     });
 

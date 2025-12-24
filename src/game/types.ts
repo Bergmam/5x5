@@ -74,14 +74,11 @@ export interface InventoryItem {
   icon: string; // emoji
   rarity: 'common' | 'uncommon' | 'rare' | 'epic';
   kind: 'consumable' | 'passive' | 'ability-granting' | 'relic';
-  
-  stats?: {
-    hpBonus?: number;
-    mpBonus?: number;
-    armorBonus?: number;
-    weaponDamageBonus?: number;
-    spellDamageBonus?: number;
-  };
+
+  // Passive stat bonuses provided while the item exists anywhere in the inventory.
+  // This is intentionally a stat-keyed map so it can be extended by adding new keys
+  // to the PlayerStatKey union (no need to add new struct fields).
+  stats?: Partial<Record<import('./stats').PlayerStatKey, number>>;
   
   consumable?: {
     healHp?: number;

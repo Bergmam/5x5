@@ -7,6 +7,8 @@ import InventoryPanel from './InventoryPanel';
 import ItemTooltip from './ItemTooltip';
 import type { InventoryItem } from '../game/types';
 import { getItemById } from '../data/itemLoader';
+import StatsPanel from './StatsPanel';
+import { calculateEffectiveStats } from '../game/stats';
 
 export function GameBoard() {
   const { player, floor, floorNumber, gameStarted, gameOver, victoryMessage, interaction, startNewGame, movePlayer, resetGame, toggleInventory } = useGameStore();
@@ -176,6 +178,17 @@ export function GameBoard() {
     return <div className="flex items-center justify-center min-h-screen bg-gray-950 text-gray-100">Loading...</div>;
   }
 
+  const effectiveStats = calculateEffectiveStats(
+    {
+      maxHp: player.maxHp,
+      maxMp: player.maxMp,
+      armor: player.armor,
+      weaponDamage: player.weaponDamage,
+      spellDamage: player.spellDamage,
+    },
+    player.inventory
+  );
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-950 p-8">
       {/* Game Over Overlay - only for death */}
@@ -202,11 +215,16 @@ export function GameBoard() {
           <span className="font-semibold">Floor:</span> {floorNumber}
         </div>
         <div className="text-lg">
-          <span className="font-semibold text-red-400">HP:</span> {player.hp}/{player.maxHp}
+          <span className="font-semibold text-red-400">HP:</span> {player.hp}/{effectiveStats.maxHp}
         </div>
         <div className="text-lg">
-          <span className="font-semibold text-cyan-400">MP:</span> {player.mp}/{player.maxMp}
+          <span className="font-semibold text-cyan-400">MP:</span> {player.mp}/{effectiveStats.maxMp}
         </div>
+      </div>
+
+      {/* Left Side Stats Panel */}
+      <div className="fixed left-4 top-1/2 -translate-y-1/2 hidden md:block">
+        <StatsPanel stats={effectiveStats} />
       </div>
 
       {/* Game Board with overlayed entities */}

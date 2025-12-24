@@ -1,4 +1,5 @@
 import type { InventoryItem } from '../game/types';
+import { PLAYER_STAT_LABELS, PLAYER_STAT_ORDER } from '../game/stats';
 
 interface ItemTooltipProps {
   item: InventoryItem;
@@ -11,11 +12,12 @@ export default function ItemTooltip({ item, position }: ItemTooltipProps) {
   // Format stats for display
   const stats: string[] = [];
   if (item.stats) {
-    if (item.stats.hpBonus) stats.push(`+${item.stats.hpBonus} Max HP`);
-    if (item.stats.mpBonus) stats.push(`+${item.stats.mpBonus} Max MP`);
-    if (item.stats.armorBonus) stats.push(`+${item.stats.armorBonus} Armor`);
-    if (item.stats.weaponDamageBonus) stats.push(`+${item.stats.weaponDamageBonus} Weapon Damage`);
-    if (item.stats.spellDamageBonus) stats.push(`+${item.stats.spellDamageBonus} Spell Damage`);
+    for (const key of PLAYER_STAT_ORDER) {
+      const v = item.stats[key];
+      if (typeof v === 'number' && v !== 0) {
+        stats.push(`+${v} ${PLAYER_STAT_LABELS[key]}`);
+      }
+    }
   }
   
   // Format consumable effects

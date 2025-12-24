@@ -4,6 +4,7 @@ import { Player, attemptMove, Direction, MoveResult } from '../game/movement';
 import { generateFloor } from '../game/generator';
 import { useItem as applyItemUse, removeItem, getInventoryCount } from '../game/inventory';
 import { runEnemyTurn as runEnemyTurnModule } from '../game/enemyAI';
+import { calculateEffectiveStats, type PlayerStats } from '../game/stats';
 
 interface GameState {
   // Current game state
@@ -53,6 +54,28 @@ const createInitialPlayer = (): Player => ({
   armor: 5,
   inventory: Array(25).fill(null),
 });
+
+function getEffectivePlayerStats(player: Player): PlayerStats {
+  return calculateEffectiveStats(
+    {
+      maxHp: player.maxHp,
+      maxMp: player.maxMp,
+      armor: player.armor,
+      weaponDamage: player.weaponDamage,
+      spellDamage: player.spellDamage,
+    },
+    player.inventory
+  );
+}
+
+function clampResourcesToEffectiveMax(player: Player): Player {
+  const effective = getEffectivePlayerStats(player);
+  return {
+    ...player,
+    hp: Math.min(player.hp, effective.maxHp),
+    mp: Math.min(player.mp, effective.maxMp),
+  };
+}
 
 export const useGameStore = create<GameState>((set, get) => ({
   player: createInitialPlayer(),
@@ -143,6 +166,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       const postState = get();
       if (!postState.floor) return;
 
+      const effective = getEffectivePlayerStats(postState.player);
+
       const enemyProcessed = runEnemyTurnModule({
         floor: postState.floor,
         playerPos: postState.player.pos,
@@ -155,7 +180,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           const attacker = postState.floor!.entities.find(e => e.id === atk.attackerId);
           if (!attacker || attacker.kind !== 'enemy') return sum;
           const data = attacker.data as EnemyData;
-          const dmg = Math.max(5, (data.damage || 5) - postState.player.armor);
+          const dmg = Math.max(5, (data.damage || 5) - effective.armor);
           return sum + dmg;
         }, 0);
         if (totalDamage > 0) {
@@ -185,6 +210,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       // Handle item pickup
       if (result.newInventory && result.itemEntityIdToRemove) {
         updatedPlayer.inventory = result.newInventory;
+        updatedPlayer = clampResourcesToEffectiveMax(updatedPlayer);
         updatedFloor = {
           ...state.floor,
           entities: state.floor.entities.filter(e => e.id !== result.itemEntityIdToRemove)
@@ -224,7 +250,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       
       // Calculate damage
       const enemyData = enemy.data as EnemyData; 
-      const damage = Math.max(5, player.weaponDamage - (enemyData?.armor || 0));
+  const effective = getEffectivePlayerStats(player);
+  const damage = Math.max(5, effective.weaponDamage - (enemyData?.armor || 0));
       
       // Update enemy HP
       const newHp = (enemyData?.hp || 0) - damage;
@@ -299,6 +326,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     const state = get();
     if (!state.floor || state.gameOver) return;
 
+    const effective = getEffectivePlayerStats(state.player);
+
     const triggerDeathIfNeeded = () => {
       const s = get();
       if (s.gameOver) return;
@@ -320,7 +349,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         const attacker = state.floor!.entities.find((e) => e.id === atk.attackerId);
         if (!attacker || attacker.kind !== 'enemy') return sum;
         const data = attacker.data as EnemyData;
-        const dmg = Math.max(5, (data.damage || 5) - state.player.armor);
+        const dmg = Math.max(5, (data.damage || 5) - effective.armor);
         return sum + dmg;
       }, 0);
       if (totalDamage > 0) {
@@ -352,16 +381,13 @@ export const useGameStore = create<GameState>((set, get) => ({
       return;
     }
 
-    const { player: updatedPlayer, inventory: newInventory } = applyItemUse(
-      state.player,
-      slotIndex
-    );
+    const { player: updatedAfterUse, inventory: newInventory } = applyItemUse(state.player, slotIndex);
+    // After consuming, inventory changes immediately (item removed). Clamp resources against
+    // the post-consumption effective maxima.
+    const clampedPlayer = clampResourcesToEffectiveMax({ ...updatedAfterUse, inventory: newInventory });
 
     set({
-      player: {
-        ...updatedPlayer,
-        inventory: newInventory,
-      },
+      player: clampedPlayer,
       selectedItemSlot: null,
       turnCount: state.turnCount + 1, // Using an item consumes a turn
     });
@@ -381,10 +407,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     const newInventory = removeItem(state.player.inventory, slotIndex);
 
     set({
-      player: {
+      player: clampResourcesToEffectiveMax({
         ...state.player,
         inventory: newInventory,
-      },
+      }),
       selectedItemSlot: null,
     });
   },

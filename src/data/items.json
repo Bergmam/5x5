@@ -19,7 +19,7 @@
       "rarity": "uncommon",
       "kind": "passive",
       "stats": {
-        "armorBonus": 5
+        "armor": 5
       }
     },
     {
@@ -30,7 +30,7 @@
       "rarity": "rare",
       "kind": "passive",
       "stats": {
-        "weaponDamageBonus": 10
+        "weaponDamage": 10
       }
     },
     {
@@ -41,8 +41,8 @@
       "rarity": "epic",
       "kind": "passive",
       "stats": {
-        "mpBonus": 15,
-        "spellDamageBonus": 5
+        "maxMp": 15,
+        "spellDamage": 5
       }
     }
   ]

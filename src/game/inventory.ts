@@ -1,44 +1,15 @@
 import type { InventoryItem, Player } from './types';
+import type { PlayerStats } from './stats';
+import { calculateEffectiveStats } from './stats';
 
-export interface PlayerStats {
-  maxHp: number;
-  maxMp: number;
-  armor: number;
-  weaponDamage: number;
-  spellDamage: number;
-}
+// Re-export for backward compatibility with existing imports/tests.
+export type { PlayerStats } from './stats';
 
 export function calculateStats(
   baseStats: PlayerStats,
   inventory: (InventoryItem | null)[]
 ): PlayerStats {
-  const bonuses = inventory.reduce(
-    (acc, item) => {
-      if (item?.stats) {
-        acc.hpBonus += item.stats.hpBonus || 0;
-        acc.mpBonus += item.stats.mpBonus || 0;
-        acc.armorBonus += item.stats.armorBonus || 0;
-        acc.weaponDamageBonus += item.stats.weaponDamageBonus || 0;
-        acc.spellDamageBonus += item.stats.spellDamageBonus || 0;
-      }
-      return acc;
-    },
-    {
-      hpBonus: 0,
-      mpBonus: 0,
-      armorBonus: 0,
-      weaponDamageBonus: 0,
-      spellDamageBonus: 0,
-    }
-  );
-
-  return {
-    maxHp: baseStats.maxHp + bonuses.hpBonus,
-    maxMp: baseStats.maxMp + bonuses.mpBonus,
-    armor: baseStats.armor + bonuses.armorBonus,
-    weaponDamage: baseStats.weaponDamage + bonuses.weaponDamageBonus,
-    spellDamage: baseStats.spellDamage + bonuses.spellDamageBonus,
-  };
+  return calculateEffectiveStats(baseStats, inventory);
 }
 
 export function getFirstEmptySlot(
