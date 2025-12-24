@@ -129,6 +129,16 @@ export const useGameStore = create<GameState>((set, get) => ({
       return { success: false, reason: 'game-not-active' };
     }
 
+    const triggerDeathIfNeeded = () => {
+      const s = get();
+      if (s.gameOver) return;
+      if (s.player.hp > 0) return;
+      set({
+        gameOver: true,
+        victoryMessage: 'You died.',
+      });
+    };
+
     const runEnemyTurnAfterPlayerAction = () => {
       const postState = get();
       if (!postState.floor) return;
@@ -153,6 +163,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             player: { ...s.player, hp: Math.max(0, s.player.hp - totalDamage) },
             interaction: enemyProcessed.interaction || s.interaction,
           }));
+          triggerDeathIfNeeded();
         }
       }
 
@@ -201,13 +212,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           },
         }));
 
-        // Check for death
-        if (get().player.hp <= 0) {
-          set({
-            gameOver: true,
-            victoryMessage: 'You died! A trap dealt fatal damage.',
-          });
-        }
+        triggerDeathIfNeeded();
       }
 
       // Run enemy turns after player movement
@@ -294,11 +299,21 @@ export const useGameStore = create<GameState>((set, get) => ({
     const state = get();
     if (!state.floor || state.gameOver) return;
 
+    const triggerDeathIfNeeded = () => {
+      const s = get();
+      if (s.gameOver) return;
+      if (s.player.hp > 0) return;
+      set({
+        gameOver: true,
+        victoryMessage: 'You died.',
+      });
+    };
+
     const enemyProcessed = runEnemyTurnModule({
       floor: state.floor,
       playerPos: state.player.pos,
     });
-  set(enemyProcessed);
+    set(enemyProcessed);
 
     if (enemyProcessed.attacks && enemyProcessed.attacks.length > 0) {
       const totalDamage = enemyProcessed.attacks.reduce((sum, atk) => {
@@ -313,6 +328,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           player: { ...s.player, hp: Math.max(0, s.player.hp - totalDamage) },
           interaction: enemyProcessed.interaction || s.interaction,
         }));
+        triggerDeathIfNeeded();
       }
     }
 

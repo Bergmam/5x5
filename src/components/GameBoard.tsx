@@ -2,15 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { DIRECTIONS } from '../game/movement';
 import { getTile } from '../game/movement';
-import { Tile, EntityBase, EnemyData } from '../game/types';
-import { getInventoryCount } from '../game/inventory';
+import { Tile, EnemyData } from '../game/types';
 import InventoryPanel from './InventoryPanel';
 import ItemTooltip from './ItemTooltip';
 import type { InventoryItem } from '../game/types';
 import { getItemById } from '../data/itemLoader';
 
 export function GameBoard() {
-  const { player, floor, turnCount, floorNumber, gameStarted, gameOver, victoryMessage, interaction, startNewGame, movePlayer, resetGame, toggleInventory } = useGameStore();
+  const { player, floor, floorNumber, gameStarted, gameOver, victoryMessage, interaction, startNewGame, movePlayer, resetGame, toggleInventory } = useGameStore();
   const [animating, setAnimating] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<{
     item: InventoryItem;
@@ -186,12 +185,6 @@ export function GameBoard() {
             <h2 className="text-3xl font-bold text-red-400">💀 Game Over</h2>
             <p className="text-gray-300">{victoryMessage}</p>
             <div className="flex gap-4 justify-center">
-              <button
-                onClick={() => startNewGame()}
-                className="px-6 py-2 bg-cyan-600 text-white rounded hover:bg-cyan-500 transition-colors"
-              >
-                New Game
-              </button>
               <button
                 onClick={resetGame}
                 className="px-6 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors"
