@@ -12,6 +12,17 @@
       }
     },
     {
+      "id": "mana-potion",
+      "name": "Mana Potion",
+      "description": "Restores 20 MP",
+      "icon": "🔮",
+      "rarity": "common",
+      "kind": "consumable",
+      "consumable": {
+        "restoreMp": 20
+      }
+    },
+    {
       "id": "iron-plate",
       "name": "Iron Plate",
       "description": "A sturdy piece of metal",
