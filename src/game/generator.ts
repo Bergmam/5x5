@@ -28,6 +28,7 @@ const defaultConfig: GenerationConfig = {
 export function generateFloor(seed: string | number, cfg?: Partial<GenerationConfig>): MapFloor {
   const config: GenerationConfig = { ...defaultConfig, ...(cfg || {}) } as GenerationConfig;
   const rng = createRng(seed);
+  const floorId = String(seed);
 
   const entrance: Vec2 = config.entrance ?? { x: 0, y: Math.floor(config.height / 2) };
   
@@ -104,7 +105,7 @@ export function generateFloor(seed: string | number, cfg?: Partial<GenerationCon
     }
     const randomItem = getRandomItem(rng);
     entities.push({ 
-      id: `item-${c}`, 
+      id: `item-${floorId}-${c}`, 
       kind: 'item', 
       pos: t.pos, 
       data: { itemId: randomItem.id } 
@@ -138,7 +139,7 @@ export function generateFloor(seed: string | number, cfg?: Partial<GenerationCon
     };
 
     entities.push({ 
-      id: `enemy-${e}`, 
+      id: `enemy-${floorId}-${e}`, 
       kind: 'enemy', 
       pos: pick.pos, 
       data: enemyData 

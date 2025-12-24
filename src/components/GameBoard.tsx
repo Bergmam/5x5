@@ -30,6 +30,23 @@ export function GameBoard() {
   const recentMoveOffsets = useRef<Map<string, { dx: number; dy: number; at: number }>>(new Map());
   const resetAnimatingIds = useRef<Set<string>>(new Set());
 
+  // When floor changes (new seed), clear cached positions so enemies don't appear to slide
+  // from their previous-floor locations.
+  const prevFloorSeed = useRef<string | null>(null);
+  useEffect(() => {
+    if (!floor) return;
+    if (prevFloorSeed.current === null) {
+      prevFloorSeed.current = floor.seed;
+      return;
+    }
+    if (prevFloorSeed.current !== floor.seed) {
+      prevFloorSeed.current = floor.seed;
+      prevEnemyPos.current = new Map();
+      recentMoveOffsets.current = new Map();
+      resetAnimatingIds.current = new Set();
+    }
+  }, [floor]);
+
   // Capture previous positions and compute move offsets when floor/entities update
   useEffect(() => {
     if (!floor) return;
