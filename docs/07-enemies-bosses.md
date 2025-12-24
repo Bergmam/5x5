@@ -11,6 +11,7 @@
 - **Level 1 Enemies**: Should have exactly **5 HP**.
   - This ensures they are killed in one hit by a player with no items (assuming base damage >= 5).
 - **Scaling**: Enemies get progressively harder (more HP/Armor/Damage) on deeper floors.
+  - Enemy damage starts at 5 on floor 1 and increases by multiples of 5 as floors progress (e.g., floor 3 enemies may deal 10–15 damage depending on config).
 
 ## Implementation Plan
 
@@ -59,12 +60,20 @@
 - They enter **follow** mode if either condition is met:
   1. The player is within 2 tiles (Manhattan distance ≤ 2).
   2. The enemy takes damage.
+- Additionally (current behavior): after enemies move, if an enemy ends its movement within 2 tiles (Manhattan distance ≤ 2) of the player, it immediately enters **follow** and triggers the aggro cue that same turn.
 - Future: We may hardcode special behaviors per enemy type.
+
+#### Sticky follow (current behavior)
+- **Once an enemy enters `follow`, it stays in `follow` for the rest of the floor.**
+  - Proximity/damage are **entry triggers only**.
+  - Distance to the player does not cause an enemy to “calm down” or revert to patrol/static.
 
 ### UX Cues on Follow
 - When an enemy switches to **follow**, play a brief animation:
   - Show a small exclamation mark `!` above the enemy.
   - Perform a quick “jump” (y-offset or scale) to indicate aggro.
+
+**Important:** The `!` + jump cue should be shown **only for the enemy/enemies that just transitioned into follow this turn**, not every enemy that happens to be near the player.
 
 ### Implementation Plan (future)
 - Add `ai` and `state.mode` to `EnemyData`.
@@ -78,7 +87,8 @@
 - Respect walls and non-walkable tiles; enemies cannot move through walls.
 - Avoid overlapping entities; if target tile occupied, skip move or choose alternate.
 - If patrol is blocked (no valid tiles within radius), enemy idles.
-- If follow cannot approach due to obstacles, enemy idles or switches back after timeout (future rule).
+- If follow cannot approach due to obstacles, enemy idles (it does not switch back).
+- If an enemy is orthogonally adjacent to the player and intends to move, it will perform a melee attack instead of moving.
 
 ## Implementation Details (engineering)
 
@@ -98,7 +108,8 @@
 ### Triggers (deterministic)
 - Proximity: `manhattan(enemy.pos, player.pos) <= 2` → set `state.mode = 'follow'`.
 - Damage: Any reduction in `enemy.data.hp` since last turn → set `state.mode = 'follow'`.
-- Persist follow until player distance > 3 for 2 consecutive turns (future tuning).
+- Post-move proximity: after applying movement, if `manhattan(enemy.pos, player.pos) <= 2` and the enemy was not already following at the start of the turn → set `state.mode = 'follow'` and emit `enemy-aggro`.
+- Persist follow indefinitely once triggered (sticky follow).
 
 ### Patrol step selection
 - Candidates: 4-adjacent tiles around `enemy.pos` that are walkable AND `manhattan(tile, spawnPos) <= 2`.
@@ -123,13 +134,24 @@
   ```ts
   interactionEvents.push({
     type: 'enemy-aggro',
-    enemyId,
+    // include the specific enemies that transitioned this turn
+    aggroEnemyIds,
     pos: enemy.pos,
     timestamp: Date.now(),
     fx: { icon: '!', jump: true }
   })
   ```
 - UI (`GameBoard.tsx`) renders transient icon above enemy and a quick translateY/scale effect.
+
+- On melee attack, emit:
+  ```ts
+  interactionEvents.push({
+    type: 'attack',
+    targetPos: player.pos,
+    timestamp: Date.now(),
+  })
+  ```
+  Store reduces player HP by `max(5, enemy.damage - player.armor)`.
 
 ### Data additions
 - Extend `EnemyData`:
@@ -147,4 +169,5 @@
 - Unit: Given proximity/damage, ensure mode switches to follow and emits aggro event.
 - Property: For random seeds, no enemy moves through walls; no overlapping positions post-turn.
 - Integration: Simulate N turns; verify enemies do not drift beyond patrol bounds and follow reduces distance on open maps.
+- Unit: Given an enemy adjacent to player, ensure movement is suppressed and an attack interaction is emitted; player HP decreases by expected damage.
 

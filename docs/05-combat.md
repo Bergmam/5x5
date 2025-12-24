@@ -22,6 +22,15 @@ All heals and mana costs are multiples of 5.
 - **Visual Feedback**:
   - A small animation plays: the player sprite quickly pushes towards the enemy and returns to the original position ("bump" animation).
 
+## Enemy Attacks
+- **Adjacency rule**: If an enemy is orthogonally adjacent to the player (up/down/left/right) and would move this turn, it instead performs a melee attack.
+  - Enemy damage starts at 5 on floor 1 and scales in multiples of 5 on deeper floors (e.g., 10, 15, ... based on progression).
+  - Damage is applied to the player using the same deterministic formula: `FinalDamage = max(5, EnemyDamage - PlayerArmor)`.
+- **Visual Feedback**:
+  - Enemies use the same attack animation as the player: a quick push/bump towards the player's tile.
+- **Post-attack effect**:
+  - The player’s HP is reduced immediately after the enemy attack resolves.
+
 ## Implementation Plan
 
 ### Game Logic (`src/store/gameStore.ts`)
@@ -45,5 +54,11 @@ All heals and mana costs are multiples of 5.
      } | null;
      ```
    - When attacking, set this state. The UI (`GameBoard.tsx`) will read this to trigger a CSS animation or Framer Motion effect on the player sprite.
+
+### Enemy Attack Resolution (`src/game/enemyAI.ts` + store wiring)
+1. In the enemy turn loop, before moving an enemy, check orthogonal adjacency to the player.
+2. If adjacent and the enemy intends to move, suppress movement and emit an attack interaction targeted at the player's position.
+3. Compute enemy damage: `damage = max(5, enemy.damage - player.armor)`; apply to player HP in the store after enemy turn result is set.
+4. Use the same interaction animation payload as player attacks for consistency.
 
 

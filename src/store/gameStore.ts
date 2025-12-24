@@ -21,10 +21,15 @@ interface GameState {
   
   // Animation state
   interaction: {
-    type: 'attack' | 'bump' | 'enemy-aggro';
+    type: 'attack' | 'bump' | 'enemy-aggro' | 'enemy-attack';
     targetPos: { x: number; y: number };
     timestamp: number;
+    attackerId?: string;
+    aggroEnemyIds?: string[];
   } | null;
+
+  // Internal helper so non-movement actions (like items) can advance enemies too.
+  _runEnemyTurnAfterPlayerAction: () => void;
 
   // Actions
   startNewGame: (seed?: string) => void;
@@ -124,6 +129,41 @@ export const useGameStore = create<GameState>((set, get) => ({
       return { success: false, reason: 'game-not-active' };
     }
 
+    const runEnemyTurnAfterPlayerAction = () => {
+      const postState = get();
+      if (!postState.floor) return;
+
+      const enemyProcessed = runEnemyTurnModule({
+        floor: postState.floor,
+        playerPos: postState.player.pos,
+      });
+      set(enemyProcessed);
+
+      // Apply enemy melee attacks to player HP
+      if (enemyProcessed.attacks && enemyProcessed.attacks.length > 0) {
+        const totalDamage = enemyProcessed.attacks.reduce((sum, atk) => {
+          const attacker = postState.floor!.entities.find(e => e.id === atk.attackerId);
+          if (!attacker || attacker.kind !== 'enemy') return sum;
+          const data = attacker.data as EnemyData;
+          const dmg = Math.max(5, (data.damage || 5) - postState.player.armor);
+          return sum + dmg;
+        }, 0);
+        if (totalDamage > 0) {
+          set((s) => ({
+            player: { ...s.player, hp: Math.max(0, s.player.hp - totalDamage) },
+            interaction: enemyProcessed.interaction || s.interaction,
+          }));
+        }
+      }
+
+      // Auto-clear transient aggro/attack interaction after a brief delay
+      if (enemyProcessed.interaction?.type === 'enemy-aggro' || enemyProcessed.interaction?.type === 'enemy-attack') {
+        setTimeout(() => {
+          set((s) => ({ interaction: s.interaction && (s.interaction.type === 'enemy-aggro' || s.interaction.type === 'enemy-attack') ? null : s.interaction }));
+        }, 500);
+      }
+    };
+
     const result = attemptMove(state.player, direction, state.floor);
 
     if (result.success && result.newPos) {
@@ -171,21 +211,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
 
       // Run enemy turns after player movement
-      const postState = get();
-      if (postState.floor) {
-        const enemyProcessed = runEnemyTurnModule({
-          floor: postState.floor,
-          playerPos: postState.player.pos,
-          interaction: postState.interaction,
-        });
-        set(enemyProcessed);
-        // Auto-clear transient aggro interaction after a brief delay
-        if (enemyProcessed.interaction?.type === 'enemy-aggro') {
-          setTimeout(() => {
-            set((s) => ({ interaction: s.interaction?.type === 'enemy-aggro' ? null : s.interaction }));
-          }, 500);
-        }
-      }
+      runEnemyTurnAfterPlayerAction();
     } else if (result.attackedEnemy) {
       // Handle attack
       const enemy = result.attackedEnemy;
@@ -225,22 +251,13 @@ export const useGameStore = create<GameState>((set, get) => ({
         turnCount: state.turnCount + 1
       });
 
-      // Enemy reacts next turn immediately (damage trigger for follow)
-      const postState = get();
-      if (postState.floor) {
-        const enemyProcessed = runEnemyTurnModule({
-          floor: postState.floor,
-          playerPos: postState.player.pos,
-          interaction: postState.interaction,
-        });
-        set(enemyProcessed);
-        // Auto-clear transient aggro interaction after a brief delay
-        if (enemyProcessed.interaction?.type === 'enemy-aggro') {
-          setTimeout(() => {
-            set((s) => ({ interaction: s.interaction?.type === 'enemy-aggro' ? null : s.interaction }));
-          }, 500);
-        }
-      }
+      // Enemy reacts immediately (damage trigger for follow)
+      runEnemyTurnAfterPlayerAction();
+    } else {
+      // No movement occurred (blocked/out-of-bounds/etc). Treat as a turn so enemies can react.
+      // This fixes cases where enemies only aggro after you successfully move adjacent.
+      set((s) => ({ turnCount: s.turnCount + 1 }));
+      runEnemyTurnAfterPlayerAction();
     }
 
     return result;
@@ -271,6 +288,46 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ selectedItemSlot: slotIndex });
   },
 
+  // Shared enemy-turn runner for non-movement actions (items, etc)
+  // Keeps behavior consistent: any turn-consuming action should advance the enemy turn.
+  _runEnemyTurnAfterPlayerAction: () => {
+    const state = get();
+    if (!state.floor || state.gameOver) return;
+
+    const enemyProcessed = runEnemyTurnModule({
+      floor: state.floor,
+      playerPos: state.player.pos,
+    });
+  set(enemyProcessed);
+
+    if (enemyProcessed.attacks && enemyProcessed.attacks.length > 0) {
+      const totalDamage = enemyProcessed.attacks.reduce((sum, atk) => {
+        const attacker = state.floor!.entities.find((e) => e.id === atk.attackerId);
+        if (!attacker || attacker.kind !== 'enemy') return sum;
+        const data = attacker.data as EnemyData;
+        const dmg = Math.max(5, (data.damage || 5) - state.player.armor);
+        return sum + dmg;
+      }, 0);
+      if (totalDamage > 0) {
+        set((s) => ({
+          player: { ...s.player, hp: Math.max(0, s.player.hp - totalDamage) },
+          interaction: enemyProcessed.interaction || s.interaction,
+        }));
+      }
+    }
+
+    if (enemyProcessed.interaction?.type === 'enemy-aggro' || enemyProcessed.interaction?.type === 'enemy-attack') {
+      setTimeout(() => {
+        set((s) => ({
+          interaction:
+            s.interaction && (s.interaction.type === 'enemy-aggro' || s.interaction.type === 'enemy-attack')
+              ? null
+              : s.interaction,
+        }));
+      }, 500);
+    }
+  },
+
   useItem: (slotIndex: number) => {
     const state = get();
     const item = state.player.inventory[slotIndex];
@@ -293,7 +350,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       turnCount: state.turnCount + 1, // Using an item consumes a turn
     });
 
-    // TODO: Execute enemy turns after using item
+    // Enemies take their turn after item usage
+    get()._runEnemyTurnAfterPlayerAction();
   },
 
   destroyItem: (slotIndex: number) => {

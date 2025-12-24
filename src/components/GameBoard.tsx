@@ -226,13 +226,16 @@ export function GameBoard() {
           <div className="absolute top-0 left-0 w-full h-full">
             {/* Player */}
             <div
-              className="absolute text-cyan-400 font-bold text-2xl flex items-center justify-center"
+              className="absolute text-cyan-400 font-bold text-2xl flex items-center justify-center transition-transform"
               style={{
                 left: player.pos.x * TILE_SIZE,
                 top: player.pos.y * TILE_SIZE,
                 width: TILE_SIZE,
                 height: TILE_SIZE,
                 transition: 'left 180ms ease-out, top 180ms ease-out',
+                transform: animating && interaction && (interaction.type === 'attack' || interaction.type === 'enemy-aggro' || interaction.type === 'enemy-attack')
+                  ? `translate(${(interaction.targetPos.x - player.pos.x) * 8}px, ${(interaction.targetPos.y - player.pos.y) * 8}px)`
+                  : 'translate(0, 0)'
               }}
               title="Player"
             >
@@ -243,7 +246,13 @@ export function GameBoard() {
             {floor.entities.map((e) => {
               if (e.kind === 'enemy') {
                 const data = e.data as EnemyData;
-                const showAggro = interaction?.type === 'enemy-aggro' && (data?.state?.mode ?? data?.ai) === 'follow' && (Math.abs(e.pos.x - player.pos.x) + Math.abs(e.pos.y - player.pos.y) <= 2);
+                const showAggro =
+                  interaction?.type === 'enemy-aggro' &&
+                  (interaction.aggroEnemyIds?.includes(e.id) ?? false);
+                const isAttacking = interaction?.type === 'enemy-attack' && interaction.attackerId === e.id;
+                const attackDx = player.pos.x - e.pos.x;
+                const attackDy = player.pos.y - e.pos.y;
+                const attackElapsed = isAttacking ? Date.now() - (interaction?.timestamp ?? 0) : 0;
                 return (
                   <div
                     key={e.id}
@@ -253,7 +262,8 @@ export function GameBoard() {
                       top: e.pos.y * TILE_SIZE,
                       width: TILE_SIZE,
                       height: TILE_SIZE,
-                      transition: 'left 180ms ease-out, top 180ms ease-out',
+                      transition: 'left 180ms ease-out, top 180ms ease-out, transform 80ms cubic-bezier(0.22, 1, 0.36, 1)',
+                      transform: isAttacking && attackElapsed < 90 ? `translate(${attackDx * 14}px, ${attackDy * 14}px)` : 'translate(0, 0)'
                     }}
                     title={`Enemy (${e.pos.x}, ${e.pos.y})`}
                   >
@@ -312,9 +322,6 @@ export function GameBoard() {
       <div className="mt-6 text-center text-gray-400 space-y-2">
         <p className="text-sm">
           <span className="font-semibold">Controls:</span> Arrow keys or WASD to move | I or Tab for Inventory
-        </p>
-        <p className="text-xs">
-          Move to the <span className="text-blue-400 font-semibold">blue exit (↓)</span> to complete the floor
         </p>
       </div>
 
