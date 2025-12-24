@@ -13,7 +13,7 @@ import EnemyTooltip from './EnemyTooltip';
 import AbilityBar from './AbilityBar';
 
 export function GameBoard() {
-  const { player, floor, floorNumber, gameStarted, gameOver, victoryMessage, interaction, startNewGame, movePlayer, resetGame, toggleInventory } = useGameStore();
+  const { player, floor, floorNumber, gameStarted, gameOver, victoryMessage, interaction, combatText, startNewGame, movePlayer, resetGame, toggleInventory } = useGameStore();
   const [animating, setAnimating] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<{
     item: InventoryItem;
@@ -214,6 +214,42 @@ export function GameBoard() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-950 p-8">
+      {/* Floating combat text keyframes */}
+      <style>{`
+        @keyframes combat-floater {
+          0% {
+            opacity: 0;
+            transform: translate(-50%, -50%) translate(var(--jx), var(--jy)) translate(0px, 0px) scale(0.6);
+          }
+          12% {
+            opacity: 1;
+            transform: translate(-50%, -50%) translate(var(--jx), var(--jy)) translate(0px, -2px) scale(1.25);
+          }
+          35% {
+            opacity: 1;
+            transform: translate(-50%, -50%) translate(var(--jx), var(--jy)) translate(0px, -10px) scale(1.05);
+          }
+          100% {
+            opacity: 0;
+            transform: translate(-50%, -50%) translate(var(--jx), var(--jy)) translate(0px, -26px) scale(1);
+          }
+        }
+
+        @keyframes combat-splat {
+          0% {
+            opacity: 0;
+            transform: translate(-50%, -50%) translate(var(--jx), var(--jy)) scale(0.6) rotate(0deg);
+          }
+          10% {
+            opacity: 0.95;
+            transform: translate(-50%, -50%) translate(var(--jx), var(--jy)) scale(1) rotate(6deg);
+          }
+          100% {
+            opacity: 0;
+            transform: translate(-50%, -50%) translate(var(--jx), var(--jy)) scale(1.15) rotate(-8deg);
+          }
+        }
+      `}</style>
       {/* Game Over Overlay - only for death */}
       {gameOver && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
@@ -268,6 +304,79 @@ export function GameBoard() {
 
           {/* Entities overlay layer aligned to grid */}
           <div className="absolute top-0 left-0 w-full h-full">
+            {/* Floating combat text overlay */}
+            {combatText.map((e) => {
+              // RuneScape-ish: anchor near the target, not midway.
+              const anchorCx = e.to.x * TILE_SIZE + TILE_SIZE / 2;
+              const anchorCy = e.to.y * TILE_SIZE + TILE_SIZE / 2;
+              const toCx = e.to.x * TILE_SIZE + TILE_SIZE / 2;
+              const toCy = e.to.y * TILE_SIZE + TILE_SIZE / 2;
+              void toCx;
+              void toCy;
+
+              // Small deterministic-ish jitter seeded by id hash (stable across re-renders)
+              let h = 0;
+              for (let i = 0; i < e.id.length; i++) h = (h * 31 + e.id.charCodeAt(i)) >>> 0;
+              const jx = ((h % 21) - 10); // [-10..10]
+              const jy = (((h >>> 8) % 9) - 6); // [-6..2]
+
+              const color =
+                e.kind === 'heal'
+                  ? 'text-green-300'
+                  : e.kind === 'mp'
+                    ? 'text-cyan-300'
+                    : (e.icon === '⚔' ? 'text-red-300' : e.icon === '🗡️' ? 'text-yellow-200' : 'text-orange-200');
+
+              const outline: React.CSSProperties = {
+                textShadow:
+                  '1px 1px 0 rgba(0,0,0,0.9), -1px 1px 0 rgba(0,0,0,0.9), 1px -1px 0 rgba(0,0,0,0.9), -1px -1px 0 rgba(0,0,0,0.9), 0 2px 0 rgba(0,0,0,0.55)',
+              };
+
+              return (
+                <div
+                  key={e.id}
+                  className={`absolute z-30 font-extrabold text-[26px] ${color}`}
+                  style={
+                    {
+                      left: anchorCx,
+                      top: anchorCy,
+                      // CSS variables consumed by keyframes
+                      ['--jx' as any]: `${jx}px`,
+                      ['--jy' as any]: `${jy}px`,
+                      animation: 'combat-floater 700ms cubic-bezier(0.2, 1.2, 0.2, 1) forwards',
+                      pointerEvents: 'none',
+                      whiteSpace: 'nowrap',
+                    } as React.CSSProperties
+                  }
+                >
+                  {/* tiny splat */}
+                  <div
+                    className={
+                      'absolute -z-10 left-1/2 top-1/2 w-9 h-7 ' +
+                      (e.kind === 'heal'
+                        ? 'bg-green-500/70'
+                        : e.kind === 'mp'
+                          ? 'bg-cyan-500/70'
+                          : (e.icon === '⚔' ? 'bg-red-500/70' : e.icon === '🗡️' ? 'bg-yellow-500/70' : 'bg-orange-500/70'))
+                    }
+                    style={
+                      {
+                        borderRadius: '55% 45% 60% 40% / 55% 40% 60% 45%',
+                        filter: 'blur(0.25px)',
+                        animation: 'combat-splat 700ms ease-out forwards',
+                        ['--jx' as any]: `${jx}px`,
+                        ['--jy' as any]: `${jy}px`,
+                        transform: 'translate(-50%, -50%)',
+                      } as React.CSSProperties
+                    }
+                  />
+
+                  <span className="mr-1" style={outline}>{e.icon}</span>
+                  <span style={outline}>{e.amount}</span>
+                </div>
+              );
+            })}
+
             {/* Player */}
             <div
               className="absolute text-cyan-400 font-bold text-2xl flex items-center justify-center transition-transform"

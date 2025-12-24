@@ -35,6 +35,21 @@ interface GameState {
     abilityId?: AbilityId;
   } | null;
 
+  // Floating combat text (damage numbers, etc)
+  combatText: Array<{
+    id: string;
+    kind: 'damage' | 'heal' | 'mp';
+    amount: number;
+    from: { x: number; y: number };
+    to: { x: number; y: number };
+    icon: string;
+    createdAt: number;
+    ttlMs: number;
+  }>;
+
+  _enqueueCombatText: (events: GameState['combatText'][number] | Array<GameState['combatText'][number]>) => void;
+  _removeCombatText: (id: string) => void;
+
   // Internal helper so non-movement actions (like items) can advance enemies too.
   _runEnemyTurnAfterPlayerAction: () => void;
 
@@ -84,6 +99,10 @@ function clampResourcesToEffectiveMax(player: Player): Player {
   };
 }
 
+function makeCombatTextId(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 export const useGameStore = create<GameState>((set, get) => ({
   player: createInitialPlayer(),
   floor: null,
@@ -95,6 +114,31 @@ export const useGameStore = create<GameState>((set, get) => ({
   inventoryOpen: false,
   selectedItemSlot: null,
   interaction: null,
+
+  combatText: [],
+
+  _removeCombatText: (id: string) => {
+    set((s) => ({ combatText: s.combatText.filter((e) => e.id !== id) }));
+  },
+
+  _enqueueCombatText: (events) => {
+    const batch = Array.isArray(events) ? events : [events];
+    if (batch.length === 0) return;
+
+    set((s) => {
+      const next = [...s.combatText, ...batch];
+      // cap to avoid unbounded growth if something goes wrong
+      const capped = next.length > 30 ? next.slice(next.length - 30) : next;
+      return { combatText: capped };
+    });
+
+    // Schedule expiry per event
+    for (const e of batch) {
+      setTimeout(() => {
+        get()._removeCombatText(e.id);
+      }, e.ttlMs);
+    }
+  },
 
   abilityBar: getAbilityBarFromInventory(createInitialPlayer().inventory, 8),
   lastMoveDirection: null,
@@ -150,6 +194,15 @@ export const useGameStore = create<GameState>((set, get) => ({
     const updatedPlayer = { ...state.player };
     updatedPlayer.pos = { ...newFloor.entrance };
 
+    // Relic effects on floor climb
+    // Vitality Charm: regain 5 HP for every floor you climb (stacks by count).
+    const vitalityCharmCount = updatedPlayer.inventory.filter((i) => i?.id === 'vitality-charm').length;
+    if (vitalityCharmCount > 0) {
+      const heal = 5 * vitalityCharmCount;
+      const effective = getEffectivePlayerStats(updatedPlayer);
+      updatedPlayer.hp = Math.min(effective.maxHp, updatedPlayer.hp + heal);
+    }
+
     set({
       player: updatedPlayer,
       floor: newFloor,
@@ -188,13 +241,33 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       // Apply enemy melee attacks to player HP
       if (enemyProcessed.attacks && enemyProcessed.attacks.length > 0) {
-        const totalDamage = enemyProcessed.attacks.reduce((sum, atk) => {
-          const attacker = postState.floor!.entities.find(e => e.id === atk.attackerId);
-          if (!attacker || attacker.kind !== 'enemy') return sum;
+        let totalDamage = 0;
+        const floaterEvents: GameState['combatText'] = [];
+
+        for (const atk of enemyProcessed.attacks) {
+          const attacker = postState.floor!.entities.find((e) => e.id === atk.attackerId);
+          if (!attacker || attacker.kind !== 'enemy') continue;
           const data = attacker.data as EnemyData;
-          const dmg = Math.max(5, (data.damage || 5) - effective.armor);
-          return sum + dmg;
-        }, 0);
+          const dmg = Math.max(0, (data.damage || 0) - effective.armor);
+          totalDamage += dmg;
+
+          floaterEvents.push({
+            id: makeCombatTextId('enemy-dmg'),
+            kind: 'damage',
+            amount: dmg,
+            from: { ...attacker.pos },
+            to: { ...postState.player.pos },
+            icon: '⚔',
+            createdAt: Date.now(),
+            ttlMs: 650,
+          });
+        }
+
+        // Always show floaters (even for 0 damage) when an attack occurred.
+        if (floaterEvents.length > 0) {
+          get()._enqueueCombatText(floaterEvents);
+        }
+
         if (totalDamage > 0) {
           set((s) => ({
             player: { ...s.player, hp: Math.max(0, s.player.hp - totalDamage) },
@@ -268,7 +341,19 @@ export const useGameStore = create<GameState>((set, get) => ({
       // Calculate damage
       const enemyData = enemy.data as EnemyData; 
   const effective = getEffectivePlayerStats(player);
-  const damage = Math.max(5, effective.weaponDamage - (enemyData?.armor || 0));
+  const damage = Math.max(0, effective.weaponDamage - (enemyData?.armor || 0));
+
+      // Damage floater (show even 0)
+      get()._enqueueCombatText({
+        id: makeCombatTextId('player-dmg'),
+        kind: 'damage',
+        amount: damage,
+        from: { ...player.pos },
+        to: { ...enemy.pos },
+        icon: '🗡️',
+        createdAt: Date.now(),
+        ttlMs: 650,
+      });
       
       // Update enemy HP
       const newHp = (enemyData?.hp || 0) - damage;
@@ -467,6 +552,34 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
 
     if (!result.didCast) return;
+
+    // Floaters for ability hits.
+    if (result.hitEnemyIds && result.hitEnemyIds.length > 0) {
+      const from = { ...state.player.pos };
+      const icon = def.icon;
+      const now = Date.now();
+      const events: GameState['combatText'] = [];
+
+      for (const enemyId of result.hitEnemyIds) {
+        const targetEntity = state.floor.entities.find((e) => e.id === enemyId);
+        if (!targetEntity) continue;
+        const amount = result.damageByEnemyId?.[enemyId] ?? 0;
+        events.push({
+          id: makeCombatTextId('ability-dmg'),
+          kind: 'damage',
+          amount,
+          from,
+          to: { ...targetEntity.pos },
+          icon,
+          createdAt: now,
+          ttlMs: 650,
+        });
+      }
+
+      if (events.length > 0) {
+        get()._enqueueCombatText(events);
+      }
+    }
 
     set((s) => ({
       floor: s.floor

@@ -25,6 +25,7 @@ export interface AbilityResult {
     abilityId?: AbilityId;
   } | null;
   hitEnemyIds?: string[];
+  damageByEnemyId?: Record<string, number>;
 }
 
 export interface AbilityDef {
@@ -115,6 +116,7 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
             timestamp: Date.now(),
           },
           hitEnemyIds: [],
+          damageByEnemyId: {},
         };
       }
 
@@ -137,6 +139,7 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
           timestamp: Date.now(),
         },
         hitEnemyIds,
+        damageByEnemyId: { [enemy.id]: damage },
       };
     },
   },
@@ -159,6 +162,7 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
       // We apply per-enemy armor by doing damage calc per target and applying individually.
       // Since applyDamageToEnemyEntities takes one damage value, do it manually here.
       const hitEnemyIds: string[] = [];
+      const damageByEnemyId: Record<string, number> = {};
       const updated = floor.entities
         .map((e) => {
           if (e.kind !== 'enemy') return e;
@@ -166,6 +170,7 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
           const data = e.data as EnemyData;
           const dmg = Math.max(5, effectiveStats.spellDamage - (data?.armor || 0));
           hitEnemyIds.push(e.id);
+          damageByEnemyId[e.id] = dmg;
           return { ...e, data: { ...data, hp: (data.hp || 0) - dmg } };
         })
         .filter((e) => {
@@ -184,6 +189,7 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
           timestamp: Date.now(),
         },
         hitEnemyIds,
+        damageByEnemyId,
       };
     },
   },

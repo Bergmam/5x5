@@ -73,6 +73,14 @@
       "rarity": "rare",
       "kind": "ability-granting",
       "abilityId": "shockwave"
+    },
+    {
+      "id": "vitality-charm",
+      "name": "Vitality Charm",
+      "description": "Regain 5 HP for every floor you climb",
+      "icon": "❤️",
+      "rarity": "rare",
+      "kind": "relic"
     }
   ]
 }
