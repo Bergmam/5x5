@@ -5,10 +5,17 @@ import { getTile } from '../game/movement';
 import { Tile, EntityBase, EnemyData } from '../game/types';
 import { getInventoryCount } from '../game/inventory';
 import InventoryPanel from './InventoryPanel';
+import ItemTooltip from './ItemTooltip';
+import type { InventoryItem } from '../game/types';
+import { getItemById } from '../data/itemLoader';
 
 export function GameBoard() {
   const { player, floor, turnCount, floorNumber, gameStarted, gameOver, victoryMessage, interaction, startNewGame, movePlayer, resetGame, toggleInventory } = useGameStore();
   const [animating, setAnimating] = useState(false);
+  const [hoveredItem, setHoveredItem] = useState<{
+    item: InventoryItem;
+    position: { x: number; y: number };
+  } | null>(null);
   const TILE_SIZE = 64; // matches w-16 h-16 (~64px)
 
   // Track previous positions to animate smooth movement
@@ -284,6 +291,11 @@ export function GameBoard() {
                 );
               }
               if (e.kind === 'item') {
+                const data = e.data as Record<string, unknown>;
+                const embeddedItem = data?.item as InventoryItem | undefined;
+                const itemId = data?.itemId as string | undefined;
+                const itemDef = embeddedItem || (itemId ? getItemById(itemId) : undefined);
+
                 return (
                   <div
                     key={e.id}
@@ -296,8 +308,24 @@ export function GameBoard() {
                       transition: 'left 180ms ease-out, top 180ms ease-out',
                     }}
                     title={`Item (${e.pos.x}, ${e.pos.y})`}
+                    onMouseEnter={(event) => {
+                      if (!itemDef) {
+                        setHoveredItem(null);
+                        return;
+                      }
+
+                      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+                      setHoveredItem({
+                        item: itemDef,
+                        position: {
+                          x: rect.left - 10,
+                          y: rect.top,
+                        },
+                      });
+                    }}
+                    onMouseLeave={() => setHoveredItem(null)}
                   >
-                    ◆
+                    {itemDef?.icon || '◆'}
                   </div>
                 );
               }
@@ -327,6 +355,11 @@ export function GameBoard() {
 
       {/* Inventory Panel */}
       <InventoryPanel />
+
+      {/* Tooltip - appears on hover */}
+      {hoveredItem && (
+        <ItemTooltip item={hoveredItem.item} position={hoveredItem.position} />
+      )}
     </div>
   );
 }
