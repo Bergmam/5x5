@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { useGameStore } from '../src/store/gameStore';
 import { DIRECTIONS } from '../src/game/movement';
+import { getItemById } from '../src/data/itemLoader';
 
 describe('NPC Interaction', () => {
   it('opens shop when walking into shopkeeper', () => {
@@ -37,6 +38,12 @@ describe('NPC Interaction', () => {
     expect(finalState.shopOpen).toBe(true);
     expect(finalState.inventoryOpen).toBe(true); // Inventory should also open
     expect(finalState.shopInventory.some(item => item !== null)).toBe(true);
+    
+    // Verify guaranteed items are present
+    expect(finalState.shopInventory).toContainEqual(getItemById('healing-potion'));
+    expect(finalState.shopInventory).toContainEqual(getItemById('mana-potion'));
+    expect(finalState.shopInventory).toContainEqual(getItemById('sharp-blade'));
+    expect(finalState.shopInventory).toContainEqual(getItemById('mana-crystal'));
     
     // Player should not have moved
     expect(finalState.player.pos).toEqual(playerPos);

@@ -6,7 +6,7 @@ import { useItem as applyItemUse, removeItem, getInventoryCount } from '../game/
 import { runEnemyTurn as runEnemyTurnModule } from '../game/enemyAI';
 import { calculateEffectiveStats, type PlayerStats } from '../game/stats';
 import { ABILITIES, getAbilityBarFromInventory, isDirectionalAbility, normalizeDirection, type AbilityId } from '../game/abilities';
-import { getRandomItem } from '../data/itemLoader';
+import { generateShopInventory } from '../data/itemLoader';
 import { createRng } from '../game/rng';
 
 interface GameState {
@@ -374,17 +374,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         if (npcData?.npcType === 'shopkeeper') {
           // Open shop and populate with items
           const shopRng = createRng(`shop-${state.floor!.seed}`);
-          
-          const shopItems: (InventoryItem | null)[] = [];
-          // Add 3-5 random items to the shop
-          const itemCount = 3 + Math.floor(shopRng() * 3);
-          for (let i = 0; i < itemCount; i++) {
-            shopItems.push(getRandomItem(shopRng));
-          }
-          // Fill rest with nulls
-          while (shopItems.length < 25) {
-            shopItems.push(null);
-          }
+          const shopItems = generateShopInventory(shopRng);
           
           set({
             shopOpen: true,
