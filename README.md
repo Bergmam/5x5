@@ -1,5 +1,20 @@
 # 5x5
 
+## TODO:
+
+* On-hover panels should be hidden when enemies are killed or items are used while it is shown.
+* Add "combine items" floor.
+* Add gold awarded when enemies dies.
+* Add items
+  * Add "teleport" item.
+    * Find solution to teleporting to areas without exits.
+  * Add "push enemies" item.
+* Add effects
+  * Fireball effect
+  * Shockwave effect
+  * Heal effect
+  * Mana gain effect
+
 ## High-level Summary
 This document captures the updated design outline for "5x5", a web-based, 2D roguelike RPG built around the motif of 25-tile modules. This revision enforces that all stats and numeric values are always multiples of 5, simplifies combat to flat deterministic damage values, defines core stats and abilities, and clarifies inventory/ability behavior.
 
