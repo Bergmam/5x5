@@ -1,16 +1,33 @@
+/**
+ * Main Game Store
+ * 
+ * This is the central Zustand store for game state management. It uses a slice pattern
+ * to organize different concerns into focused, manageable modules.
+ * 
+ * Slices:
+ * - ShopSlice: Shop economy and transactions (src/store/slices/shopSlice.ts)
+ * - CombatSlice: Combat mechanics and enemy AI (src/store/slices/combatSlice.ts)
+ * - InventorySlice: Inventory management (src/store/slices/inventorySlice.ts)
+ * - MovementSlice: Player movement and interactions (src/store/slices/movementSlice.ts)
+ * 
+ * For detailed documentation on the slice architecture and how to create new slices,
+ * see: docs/14-state-architecture.md
+ */
+
 import { create } from 'zustand';
 import { MapFloor, InventoryItem } from '../game/types';
-import { Player, attemptMove, Direction, MoveResult } from '../game/movement';
+import { Player, Direction, MoveResult } from '../game/movement';
 import { generateFloor } from '../game/generator';
-import { useItem as applyItemUse, removeItem } from '../game/inventory';
 import { calculateEffectiveStats, type PlayerStats } from '../game/stats';
 import { ABILITIES, getAbilityBarFromInventory, isDirectionalAbility, normalizeDirection, type AbilityId } from '../game/abilities';
 import { generateShopInventory } from '../data/itemLoader';
 import { createRng } from '../game/rng';
 import { createShopSlice, type ShopSlice } from './slices/shopSlice';
 import { createCombatSlice, type CombatSlice } from './slices/combatSlice';
+import { createInventorySlice, type InventorySlice } from './slices/inventorySlice';
+import { createMovementSlice, type MovementSlice } from './slices/movementSlice';
 
-interface GameState extends ShopSlice, CombatSlice {
+interface GameState extends ShopSlice, CombatSlice, InventorySlice, MovementSlice {
   // Current game state
   player: Player;
   floor: MapFloor | null;
@@ -20,13 +37,9 @@ interface GameState extends ShopSlice, CombatSlice {
   gameOver: boolean;
   victoryMessage: string | null;
   
-  // Inventory UI state
-  inventoryOpen: boolean;
-  selectedItemSlot: number | null;
 
   // Abilities
   abilityBar: (AbilityId | null)[]; // 8 slots
-  lastMoveDirection: Direction | null;
   
   // Animation state
   interaction: {
@@ -55,13 +68,8 @@ interface GameState extends ShopSlice, CombatSlice {
 
   // Actions
   startNewGame: (seed?: string, useTemplates?: boolean) => void;
-  movePlayer: (direction: Direction) => MoveResult;
   nextFloor: () => void;
   resetGame: () => void;
-  toggleInventory: () => void;
-  selectItem: (slotIndex: number | null) => void;
-  useItem: (slotIndex: number) => void;
-  destroyItem: (slotIndex: number) => void;
   castAbility: (slotIndex: number) => void;
 }
 
@@ -91,15 +99,6 @@ function getEffectivePlayerStats(player: Player): PlayerStats {
   );
 }
 
-function clampResourcesToEffectiveMax(player: Player): Player {
-  const effective = getEffectivePlayerStats(player);
-  return {
-    ...player,
-    hp: Math.min(player.hp, effective.maxHp),
-    mp: Math.min(player.mp, effective.maxMp),
-  };
-}
-
 function makeCombatTextId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
@@ -108,6 +107,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   // Merge slices
   ...createShopSlice(set, get),
   ...createCombatSlice(set, get),
+  ...createInventorySlice(set, get),
+  ...createMovementSlice(set, get),
   
   player: createInitialPlayer(),
   floor: null,
@@ -116,8 +117,6 @@ export const useGameStore = create<GameState>((set, get) => ({
   gameStarted: false,
   gameOver: false,
   victoryMessage: null,
-  inventoryOpen: false,
-  selectedItemSlot: null,
   interaction: null,
 
   combatText: [],
@@ -146,7 +145,6 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   abilityBar: getAbilityBarFromInventory(createInitialPlayer().inventory, 8),
-  lastMoveDirection: null,
 
   startNewGame: (seed?: string, useTemplates = true) => {
     const floorSeed = seed || `floor-1-${Date.now()}`;
@@ -217,94 +215,6 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
   },
 
-  movePlayer: (direction: Direction): MoveResult => {
-    const state = get();
-    
-    if (!state.floor || state.gameOver) {
-      return { success: false, reason: 'game-not-active' };
-    }
-
-    const result = attemptMove(state.player, direction, state.floor);
-    const normalizedDirection = normalizeDirection(direction);
-    
-    set({ lastMoveDirection: normalizedDirection });
-
-    if (result.success && result.newPos) {
-      // Prepare updates
-      let updatedPlayer = { ...state.player, pos: result.newPos };
-      let updatedFloor = state.floor;
-
-      // Handle item pickup
-      if (result.newInventory && result.itemEntityIdToRemove) {
-        updatedPlayer.inventory = result.newInventory;
-        updatedPlayer = clampResourcesToEffectiveMax(updatedPlayer);
-        updatedFloor = {
-          ...state.floor,
-          entities: state.floor.entities.filter(e => e.id !== result.itemEntityIdToRemove)
-        };
-      }
-
-      set((state) => ({
-        player: updatedPlayer,
-        floor: updatedFloor,
-        turnCount: state.turnCount + 1,
-        abilityBar: getAbilityBarFromInventory(updatedPlayer.inventory, 8),
-      }));
-
-      // Check if player moved away from shopkeeper (close shop if too far)
-      if (state.shopOpen) {
-        const shopkeeper = updatedFloor.entities.find(
-          (e) => e.kind === 'npc' && (e.data as Record<string, unknown>)?.npcType === 'shopkeeper'
-        );
-        get()._closeShopIfTooFar(updatedPlayer.pos, shopkeeper?.pos || null);
-      }
-
-      // Check for exit - generate next floor
-      if (result.triggeredExit) {
-        get().nextFloor();
-      }
-
-      // Handle trap damage (placeholder - will be expanded with combat system)
-      if (result.triggeredTrap) {
-        const trapDamage = 10; // multiples of 5
-        set((state) => ({
-          player: {
-            ...state.player,
-            hp: Math.max(0, state.player.hp - trapDamage),
-          },
-        }));
-
-        get()._triggerDeathIfNeeded();
-      }
-
-      // Run enemy turns after player movement
-      get()._runEnemyTurnAfterPlayerAction();
-    } else if (result.attackedEnemy) {
-      // Check if it's an NPC interaction
-      if (result.attackedEnemy.kind === 'npc') {
-        const npcData = result.attackedEnemy.data as Record<string, unknown>;
-        if (npcData?.npcType === 'shopkeeper') {
-          // Open shop and populate with items
-          const shopRng = createRng(`shop-${state.floor!.seed}`);
-          const shopItems = generateShopInventory(shopRng);
-          get()._openShop(shopItems);
-        }
-        // Don't advance turn or run enemy AI for NPC interaction
-        return result;
-      }
-
-      // Handle attack on enemy - delegate to combat slice
-      get()._handlePlayerAttackOnEnemy(result.attackedEnemy, state.player, state.floor);
-    } else {
-      // No movement occurred (blocked/out-of-bounds/etc). Treat as a turn so enemies can react.
-      // This fixes cases where enemies only aggro after you successfully move adjacent.
-      set((s) => ({ turnCount: s.turnCount + 1 }));
-      get()._runEnemyTurnAfterPlayerAction();
-    }
-
-    return result;
-  },
-
   resetGame: () => {
     const newPlayer = createInitialPlayer();
     set({
@@ -315,67 +225,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       gameStarted: false,
       gameOver: false,
       victoryMessage: null,
-      inventoryOpen: false,
-      selectedItemSlot: null,
       abilityBar: getAbilityBarFromInventory(newPlayer.inventory, 8),
       lastMoveDirection: null,
-    });
-  },
-
-  toggleInventory: () => {
-    set((state) => ({
-      inventoryOpen: !state.inventoryOpen,
-      selectedItemSlot: null, // Deselect when toggling
-    }));
-  },
-
-  selectItem: (slotIndex: number | null) => {
-    set({ selectedItemSlot: slotIndex });
-  },
-
-  useItem: (slotIndex: number) => {
-    const state = get();
-    const item = state.player.inventory[slotIndex];
-    
-    if (!item || item.kind !== 'consumable') {
-      return;
-    }
-
-    const { player: updatedAfterUse, inventory: newInventory } = applyItemUse(state.player, slotIndex);
-    // After consuming, inventory changes immediately (item removed). Clamp resources against
-    // the post-consumption effective maxima.
-    const clampedPlayer = clampResourcesToEffectiveMax({ ...updatedAfterUse, inventory: newInventory });
-
-    set({
-      player: clampedPlayer,
-      selectedItemSlot: null,
-      turnCount: state.turnCount + 1, // Using an item consumes a turn
-      abilityBar: getAbilityBarFromInventory(clampedPlayer.inventory, 8),
-    });
-
-    // Enemies take their turn after item usage
-    get()._runEnemyTurnAfterPlayerAction();
-  },
-
-  destroyItem: (slotIndex: number) => {
-    const state = get();
-    const item = state.player.inventory[slotIndex];
-    
-    if (!item) {
-      return;
-    }
-
-    const newInventory = removeItem(state.player.inventory, slotIndex);
-
-    const clamped = clampResourcesToEffectiveMax({
-      ...state.player,
-      inventory: newInventory,
-    });
-
-    set({
-      player: clamped,
-      selectedItemSlot: null,
-      abilityBar: getAbilityBarFromInventory(clamped.inventory, 8),
     });
   },
 

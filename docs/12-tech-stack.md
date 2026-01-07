@@ -36,6 +36,7 @@ Integration notes:
 ## State & data
 - Local runtime state: Zustand — lightweight, serializable store (chosen for this project). Keep `game` logic in a framework-agnostic module and surface a thin adapter to Zustand for UI wiring.
 - Persisted state between runs: browser `localStorage` for unlocks/presets; abstract behind a `storage` service for future server sync.
+- **Architecture**: State management uses a **slice pattern** to organize concerns. See [14-state-architecture.md](./14-state-architecture.md) for detailed documentation on the slice architecture, how slices communicate, and how to create new slices.
 
 ## Styling
 - Tailwind CSS (utility-first) for fast layout and prototyping, or CSS modules for stricter scoping.
@@ -52,7 +53,9 @@ Integration notes:
     /generator
     /types
   /ui                  # React components (presentational)
-  /state               # Zustand or context providers
+  /store               # Zustand state management
+    /slices            # Modular slices (shop, combat, inventory, movement)
+    gameStore.ts       # Main store orchestration
   /services            # storage, persistence, sample data loaders
   /assets              # images, sprites, tiles
   /tests               # unit/integration tests
@@ -67,6 +70,7 @@ README.md
 Engineering notes:
 - Keep the game logic in `/src/game` and keep it framework-agnostic so it can be tested without React.
 - The UI should call into the game layer with a thin adapter; this keeps deterministic rules easy to unit test.
+- State management uses a **slice pattern** - see `src/store/slices/` for examples of how to organize different concerns (shop, combat, inventory, movement).
 
 ## CI / repository hygiene
 - GitHub Actions (or equivalent) with the following jobs:
@@ -120,6 +124,7 @@ Note: the commands above are a starting point; if you prefer `npm` or `yarn`, su
 - ✅ Created Vite + React + TypeScript scaffold with ESLint/Prettier/Vitest
 - ✅ Added test-covered implementation of generator and movement system
 - ✅ Implemented Zustand game store with continuous floor progression
+- ✅ Refactored game store into modular slices (shop, combat, inventory, movement)
 - ✅ Built GameBoard UI component with keyboard controls (Arrow keys + WASD)
 - ✅ Applied dark theme (gray-950 background, bright 400-variant colors)
 - ✅ Configured routing with game on `/` and editor on `/editor`
@@ -130,22 +135,28 @@ Note: the commands above are a starting point; if you prefer `npm` or `yarn`, su
 - TypeScript strict mode with Vite 5.4.21
 - React 18+ with functional components
 - pnpm package management
-- Zustand state management
+- **Zustand state management with slice architecture** (see [14-state-architecture.md](./14-state-architecture.md))
+  - Shop slice (132 lines) - economy & transactions
+  - Combat slice (163 lines) - combat mechanics & enemy AI
+  - Inventory slice (101 lines) - inventory management
+  - Movement slice (153 lines) - player movement & interactions
+  - Main store (292 lines) - orchestration & game lifecycle
 - React Router v6 with clean URLs
 - Tailwind CSS with dark theme
-- Vitest testing (18/18 passing)
+- Vitest testing (144/144 passing)
 - Deterministic map generator with seeded RNG
 - Movement system with collision detection
 - Continuous floor progression (auto-generates next floor on exit)
 - Dark UI theme with bright text for visibility
+- Shop system with gold economy
+- Combat system with damage calculation
 
 ### 🚧 Pending
-- Combat system implementation
-- Enemy AI (movement and attacks)
-- Ability system (5 slots with MP costs)
-- Inventory UI (5×5 grid display)
+- Advanced enemy AI behaviors
+- More abilities (currently has 2: Fireball, Shockwave)
 - Movement animations
 - Floor difficulty scaling
+- Additional item types and rarities
 
 ### Key Architecture Decisions
 - **Dark Theme**: gray-950 background, gray-900 panels, gray-800 floor tiles, bright 400-variant colors (cyan-400 player, red-400 enemies, etc.)
@@ -153,5 +164,6 @@ Note: the commands above are a starting point; if you prefer `npm` or `yarn`, su
 - **Continuous progression**: No modal on exit, auto-generates next floor
 - **Keyboard controls**: Arrow keys + WASD for movement
 - **Game structure**: Pure game logic in `/src/game`, UI in `/src/components`, state in `/src/store`
+- **Slice Architecture**: State organized into focused modules (shop, combat, inventory, movement) - see [14-state-architecture.md](./14-state-architecture.md) for details
 
 If you'd like me to scaffold the project now, tell me which package manager you prefer (`pnpm` recommended) and whether you want Tailwind and Playwright included by default.

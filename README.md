@@ -120,5 +120,9 @@ This README has been split into topic-specific files under the `docs/` folder fo
 - `docs/09-map-ui.md` — Map, UI, and 5×5 module rules
 - `docs/10-balancing-tuning.md` — Balancing, tuning, and scaling notes
 - `docs/11-open-tasks.md` — Open design tasks and suggested next steps
+- `docs/12-tech-stack.md` — Implementation plan and tech stack (Vite, React, TypeScript, Zustand)
+- `docs/13-generator.md` — Map generation algorithms and templates
+- `docs/14-state-architecture.md` — **State management slice architecture and patterns**
+- `docs/15-inventory-ui.md` — Inventory UI implementation details
 
 If you'd like any of the topic files split further, renamed, or moved into subfolders, tell me which ones and I'll update them.
