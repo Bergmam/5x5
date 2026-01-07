@@ -131,11 +131,23 @@ export const useGameStore = create<GameState>((set, get) => ({
     // Use current exit as new entrance if available
     const newEntrance = state.floor ? state.floor.exit : undefined;
 
+    // Difficulty budget system: total difficulty increases linearly
+    // But we vary the number of enemies to create variety
+    // Formula: enemyCount varies between 3-6, creating different floor "feels"
+    // Early floors: more weaker enemies, later floors: fewer stronger enemies
+    const baseDifficulty = 10 + (nextFloorNum * 5); // Linear difficulty growth
+    
+    // Vary enemy count based on floor number with some oscillation
+    // This creates natural variety: sometimes many weak enemies, sometimes few strong ones
+    const enemyCountVariation = Math.sin(nextFloorNum * 0.7) * 1.5; // Oscillates between -1.5 and 1.5
+    const baseEnemyCount = 4 + Math.floor(nextFloorNum / 4); // Slowly grows: 4,4,4,4,5,5,5,5,6...
+    const enemyCount = Math.max(3, Math.min(6, Math.round(baseEnemyCount + enemyCountVariation)));
+
     const newFloor = generateFloor(floorSeed, {
       width: 5,
       height: 5,
       wallDensity: 0.5, // Increased density for dungeon feel
-      enemyBudget: 3 + Math.floor(nextFloorNum / 2), // Scale difficulty
+      enemyBudget: enemyCount,
       chestBudget: 2,
       minPathLength: 5,
       entrance: newEntrance,

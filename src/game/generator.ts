@@ -137,16 +137,27 @@ export function generateFloor(seed: string | number, cfg?: Partial<GenerationCon
     // avoid placing two entities on same tile
   if (occupied.has(`${pick.pos.x},${pick.pos.y}`)) continue;
     
+    // Calculate enemy stats based on floor number and enemy index
+    // We distribute difficulty: early enemies in a floor are weaker, later ones stronger
+    // This creates variety within each floor
+    const difficultyVariation = (e / Math.max(1, config.enemyBudget - 1)); // 0 to 1
+    const floorDifficulty = floorNumber;
+    const enemyLevel = Math.max(1, Math.floor(floorDifficulty * (0.7 + 0.6 * difficultyVariation)));
+    
+    // Stats scale with enemy level
+    const baseHp = 5 + (2 * enemyLevel);
+    const baseDamage = 5 + Math.floor(enemyLevel / 2);
+    
     const enemyData: EnemyData = {
-      hp: 5 * floorNumber,
-      maxHp: 5 * floorNumber,
-      damage: 5 * floorNumber,
+      hp: baseHp,
+      maxHp: baseHp,
+      damage: baseDamage,
       armor: 0, // Armor could scale later
-      xpValue: 5 * floorNumber,
-      level: floorNumber,
+      xpValue: 5 * enemyLevel,
+      level: enemyLevel,
       ai: 'patrol',
       spawnPos: { ...pick.pos },
-      state: { mode: 'patrol', patrolIndex: 0, lastHp: 5 * floorNumber }
+      state: { mode: 'patrol', patrolIndex: 0, lastHp: baseHp }
     };
 
     entities.push({ 
