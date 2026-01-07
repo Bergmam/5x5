@@ -10,6 +10,7 @@ function vitalityCharm(): InventoryItem {
     icon: '❤️',
     rarity: 'rare',
     kind: 'relic',
+    saleValue: 150
   };
 }
 
