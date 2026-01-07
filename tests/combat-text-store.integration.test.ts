@@ -7,7 +7,7 @@ vi.useFakeTimers();
 describe('combat text floaters (store)', () => {
   it('emits a damage floater for player melee, including 0 damage, and expires it', () => {
     const store = useGameStore.getState();
-    store.startNewGame('floater-seed');
+    store.startNewGame('floater-seed', false);
 
     // Put a super-armored enemy next to player, so damage becomes 0.
     useGameStore.setState((s) => {
@@ -40,7 +40,7 @@ describe('combat text floaters (store)', () => {
 
   it('emits one floater per enemy attacker (enemy melee)', () => {
     const store = useGameStore.getState();
-    store.startNewGame('floater-seed-2');
+    store.startNewGame('floater-seed-2', false);
 
     // Place two enemies adjacent to player, and force enemy AI to attack by setting them to follow.
     useGameStore.setState((s) => {

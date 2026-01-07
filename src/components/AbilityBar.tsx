@@ -1,10 +1,24 @@
 import { useMemo, useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { getAbilityById, isDirectionalAbility } from '../game/abilities';
+import { calculateEffectiveStats } from '../game/stats';
 
 export default function AbilityBar() {
   const { abilityBar, castAbility, lastMoveDirection, gameOver, player } = useGameStore();
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  const effectiveStats = useMemo(() => {
+    return calculateEffectiveStats(
+      {
+        maxHp: player.maxHp,
+        maxMp: player.maxMp,
+        armor: player.armor,
+        weaponDamage: player.weaponDamage,
+        spellDamage: player.spellDamage,
+      },
+      player.inventory
+    );
+  }, [player]);
 
   const hovered = useMemo(() => {
     if (hoveredIndex === null) return null;
@@ -58,10 +72,10 @@ export default function AbilityBar() {
         >
           <div className="text-gray-100 font-bold">{hovered.name}</div>
           <div className="border-t border-gray-700 my-2" />
+          <div className="text-purple-300 text-sm mb-2">
+            Damage: {Math.max(5, effectiveStats.spellDamage)} | MP Cost: {hovered.mpCost || 0}
+          </div>
           <div className="text-gray-300 text-sm">{hovered.description}</div>
-          {(hovered.mpCost ?? 0) > 0 && (
-            <div className="text-cyan-300 text-xs mt-2">MP Cost: {hovered.mpCost}</div>
-          )}
           {isDirectionalAbility(hovered.id) && !lastMoveDirection && (
             <div className="text-yellow-400 text-xs mt-2">Move once to set a facing direction.</div>
           )}

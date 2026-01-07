@@ -108,6 +108,15 @@ export function attemptMove(
     };
   }
 
+  if (entityAtTarget?.kind === 'npc') {
+    // Don't move; trigger NPC interaction (will be handled by game system)
+    return {
+      success: false,
+      reason: 'npc-collision',
+      attackedEnemy: entityAtTarget, // Reuse this field for the NPC entity
+    };
+  }
+
   let pickedUpItem: InventoryItem | undefined;
   let newInventory: (InventoryItem | null)[] | undefined;
   let itemEntityIdToRemove: string | undefined;

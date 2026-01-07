@@ -7,7 +7,7 @@ import { DIRECTIONS } from '../src/game/movement';
 describe('Enemy movement basics', () => {
   it('enemy switches to follow when player approaches within 2 tiles', () => {
     const store = useGameStore.getState();
-    store.startNewGame('enemy-follow-seed');
+    store.startNewGame('enemy-follow-seed', false);
 
     const { floor } = useGameStore.getState();
     expect(floor).toBeTruthy();
@@ -53,7 +53,7 @@ describe('Enemy movement basics', () => {
 
   it('patrolling enemy stays within radius of spawn', () => {
     const store = useGameStore.getState();
-    store.startNewGame('enemy-patrol-seed');
+    store.startNewGame('enemy-patrol-seed', false);
     const { floor } = useGameStore.getState();
     if (!floor) return;
     const enemy = floor.entities.find(e => e.kind === 'enemy');
@@ -75,7 +75,7 @@ describe('Enemy movement basics', () => {
 
   it('enemies do not stack on the same tile', () => {
     const store = useGameStore.getState();
-    store.startNewGame('enemy-collision-seed');
+    store.startNewGame('enemy-collision-seed', false);
     const { floor } = useGameStore.getState();
     if (!floor) return;
     // Drive a few turns (reduced iterations to speed up test)
@@ -91,7 +91,7 @@ describe('Enemy movement basics', () => {
 
   it('follow respects walls and idles when both axes blocked', () => {
     const store = useGameStore.getState();
-    store.startNewGame('enemy-blocked-seed');
+    store.startNewGame('enemy-blocked-seed', false);
     const { floor } = useGameStore.getState();
     if (!floor) return;
     const enemy = floor.entities.find(e => e.kind === 'enemy');
@@ -122,7 +122,7 @@ describe('Enemy movement basics', () => {
 
   it('enemy in follow mode does not move onto player tile and stops adjacent', () => {
     const store = useGameStore.getState();
-    store.startNewGame('enemy-adjacent-stop');
+    store.startNewGame('enemy-adjacent-stop', false);
     const { floor } = useGameStore.getState();
     if (!floor) return;
     const enemy = floor.entities.find(e => e.kind === 'enemy');

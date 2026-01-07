@@ -11,6 +11,7 @@ import {
 } from './types';
 import { validateFloor } from './validate';
 import { getRandomItem } from '../data/itemLoader';
+import { FLOOR_TEMPLATES, shouldSpawnTemplate, templateToFloor } from './templates';
 
 function indexFromPos(pos: Vec2, width: number) {
   return pos.y * width + pos.x;
@@ -29,7 +30,18 @@ export function generateFloor(seed: string | number, cfg?: Partial<GenerationCon
   const config: GenerationConfig = { ...defaultConfig, ...(cfg || {}) } as GenerationConfig;
   const rng = createRng(seed);
   const floorId = String(seed);
+  const floorNumber = config.floorNumber || 1;
 
+  // Check if we should use a template instead (only if explicitly enabled)
+  if (config.useTemplate === true) {
+    for (const template of Object.values(FLOOR_TEMPLATES)) {
+      if (shouldSpawnTemplate(template, floorNumber, rng())) {
+        return templateToFloor(template, floorId, floorNumber);
+      }
+    }
+  }
+
+  // Continue with normal procedural generation
   const entrance: Vec2 = config.entrance ?? { x: 0, y: Math.floor(config.height / 2) };
   
   // Smart exit placement if not provided
@@ -118,7 +130,6 @@ export function generateFloor(seed: string | number, cfg?: Partial<GenerationCon
     return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
   }
   const enemyCandidates = tiles.filter((t) => t.walkable && manhattan(t.pos, entrance) >= 2 && t.kind !== 'entrance' && t.kind !== 'exit');
-  const floorNumber = config.floorNumber || 1;
 
   for (let e = 0; e < config.enemyBudget; e++) {
     if (enemyCandidates.length === 0) break;

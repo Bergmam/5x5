@@ -6,6 +6,8 @@ import { useItem as applyItemUse, removeItem, getInventoryCount } from '../game/
 import { runEnemyTurn as runEnemyTurnModule } from '../game/enemyAI';
 import { calculateEffectiveStats, type PlayerStats } from '../game/stats';
 import { ABILITIES, getAbilityBarFromInventory, isDirectionalAbility, normalizeDirection, type AbilityId } from '../game/abilities';
+import { getRandomItem } from '../data/itemLoader';
+import { createRng } from '../game/rng';
 
 interface GameState {
   // Current game state
@@ -20,6 +22,11 @@ interface GameState {
   // Inventory UI state
   inventoryOpen: boolean;
   selectedItemSlot: number | null;
+
+  // Shop UI state
+  shopOpen: boolean;
+  shopInventory: (InventoryItem | null)[];
+  selectedShopSlot: number | null;
 
   // Abilities
   abilityBar: (AbilityId | null)[]; // 8 slots
@@ -54,7 +61,7 @@ interface GameState {
   _runEnemyTurnAfterPlayerAction: () => void;
 
   // Actions
-  startNewGame: (seed?: string) => void;
+  startNewGame: (seed?: string, useTemplates?: boolean) => void;
   movePlayer: (direction: Direction) => MoveResult;
   nextFloor: () => void;
   resetGame: () => void;
@@ -62,7 +69,11 @@ interface GameState {
   selectItem: (slotIndex: number | null) => void;
   useItem: (slotIndex: number) => void;
   destroyItem: (slotIndex: number) => void;
+  sellItem: (slotIndex: number) => void;
   castAbility: (slotIndex: number) => void;
+  toggleShop: () => void;
+  selectShopItem: (slotIndex: number | null) => void;
+  buyShopItem: (slotIndex: number) => void;
 }
 
 const createInitialPlayer = (): Player => ({
@@ -114,6 +125,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   victoryMessage: null,
   inventoryOpen: false,
   selectedItemSlot: null,
+  shopOpen: false,
+  shopInventory: Array(25).fill(null),
+  selectedShopSlot: null,
   interaction: null,
 
   combatText: [],
@@ -144,7 +158,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   abilityBar: getAbilityBarFromInventory(createInitialPlayer().inventory, 8),
   lastMoveDirection: null,
 
-  startNewGame: (seed?: string) => {
+  startNewGame: (seed?: string, useTemplates = true) => {
     const floorSeed = seed || `floor-1-${Date.now()}`;
     const newFloor = generateFloor(floorSeed, {
       width: 5,
@@ -154,6 +168,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       chestBudget: 2,
       minPathLength: 5,
       floorNumber: 1,
+      useTemplate: useTemplates, // Allow templates in normal gameplay
     });
 
     const newPlayer = createInitialPlayer();
@@ -189,6 +204,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       minPathLength: 5,
       entrance: newEntrance,
       floorNumber: nextFloorNum,
+      useTemplate: true, // Allow templates in normal gameplay
     });
 
     // Keep player stats but reset position to new entrance
@@ -313,6 +329,24 @@ export const useGameStore = create<GameState>((set, get) => ({
         abilityBar: getAbilityBarFromInventory(updatedPlayer.inventory, 8),
       }));
 
+      // Check if player moved away from shopkeeper (close shop if too far)
+      if (state.shopOpen) {
+        const shopkeeper = updatedFloor.entities.find(
+          (e) => e.kind === 'npc' && (e.data as Record<string, unknown>)?.npcType === 'shopkeeper'
+        );
+        if (shopkeeper) {
+          const distance = Math.abs(updatedPlayer.pos.x - shopkeeper.pos.x) + Math.abs(updatedPlayer.pos.y - shopkeeper.pos.y);
+          // Close shop if player is more than 1 tile away (adjacent tiles are distance 1)
+          if (distance > 1) {
+            set({
+              shopOpen: false,
+              inventoryOpen: false,
+              selectedShopSlot: null,
+            });
+          }
+        }
+      }
+
       // Check for exit - generate next floor
       if (result.triggeredExit) {
         get().nextFloor();
@@ -334,7 +368,35 @@ export const useGameStore = create<GameState>((set, get) => ({
       // Run enemy turns after player movement
       runEnemyTurnAfterPlayerAction();
     } else if (result.attackedEnemy) {
-      // Handle attack
+      // Check if it's an NPC interaction
+      if (result.attackedEnemy.kind === 'npc') {
+        const npcData = result.attackedEnemy.data as Record<string, unknown>;
+        if (npcData?.npcType === 'shopkeeper') {
+          // Open shop and populate with items
+          const shopRng = createRng(`shop-${state.floor!.seed}`);
+          
+          const shopItems: (InventoryItem | null)[] = [];
+          // Add 3-5 random items to the shop
+          const itemCount = 3 + Math.floor(shopRng() * 3);
+          for (let i = 0; i < itemCount; i++) {
+            shopItems.push(getRandomItem(shopRng));
+          }
+          // Fill rest with nulls
+          while (shopItems.length < 25) {
+            shopItems.push(null);
+          }
+          
+          set({
+            shopOpen: true,
+            shopInventory: shopItems,
+            inventoryOpen: true, // Also open inventory for selling
+          });
+        }
+        // Don't advance turn or run enemy AI for NPC interaction
+        return result;
+      }
+
+      // Handle attack on enemy
       const enemy = result.attackedEnemy;
       const player = state.player;
       
@@ -524,6 +586,31 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
   },
 
+  sellItem: (slotIndex: number) => {
+    const state = get();
+    const item = state.player.inventory[slotIndex];
+    
+    if (!item) {
+      return;
+    }
+
+    // Add gold to player
+    const goldToAdd = item.saleValue || 0;
+    const newInventory = removeItem(state.player.inventory, slotIndex);
+
+    const clamped = clampResourcesToEffectiveMax({
+      ...state.player,
+      inventory: newInventory,
+      gold: state.player.gold + goldToAdd,
+    });
+
+    set({
+      player: clamped,
+      selectedItemSlot: null,
+      abilityBar: getAbilityBarFromInventory(clamped.inventory, 8),
+    });
+  },
+
   castAbility: (slotIndex: number) => {
     const state = get();
     if (!state.floor || state.gameOver) return;
@@ -598,5 +685,58 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     // Casting an ability consumes the player's turn.
     get()._runEnemyTurnAfterPlayerAction();
+  },
+
+  toggleShop: () => {
+    set((s) => ({ 
+      shopOpen: !s.shopOpen,
+      // Close inventory when shop closes
+      inventoryOpen: s.shopOpen ? false : s.inventoryOpen,
+    }));
+  },
+
+  selectShopItem: (slotIndex: number | null) => {
+    set({ selectedShopSlot: slotIndex });
+  },
+
+  buyShopItem: (slotIndex: number) => {
+    const state = get();
+    const item = state.shopInventory[slotIndex];
+    
+    if (!item) {
+      return; // No item in this slot
+    }
+
+    // Check if player has enough gold
+    if (state.player.gold < item.saleValue) {
+      console.log('Not enough gold!');
+      return;
+    }
+
+    // Check if player has inventory space
+    const emptySlot = state.player.inventory.findIndex((slot) => slot === null);
+    if (emptySlot === -1) {
+      console.log('Inventory full!');
+      return;
+    }
+
+    // Perform the purchase
+    const newInventory = [...state.player.inventory];
+    newInventory[emptySlot] = item;
+
+    // Remove item from shop (or you could keep it available)
+    const newShopInventory = [...state.shopInventory];
+    newShopInventory[slotIndex] = null;
+
+    set({
+      player: {
+        ...state.player,
+        gold: state.player.gold - item.saleValue,
+        inventory: newInventory,
+      },
+      shopInventory: newShopInventory,
+      selectedShopSlot: null,
+      abilityBar: getAbilityBarFromInventory(newInventory, 8),
+    });
   },
 }));

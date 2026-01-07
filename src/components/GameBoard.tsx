@@ -4,6 +4,7 @@ import { DIRECTIONS } from '../game/movement';
 import { getTile } from '../game/movement';
 import { Tile, EnemyData } from '../game/types';
 import InventoryPanel from './InventoryPanel';
+import ShopPanel from './ShopPanel';
 import ItemTooltip from './ItemTooltip';
 import type { InventoryItem } from '../game/types';
 import { getItemById } from '../data/itemLoader';
@@ -13,7 +14,7 @@ import EnemyTooltip from './EnemyTooltip';
 import AbilityBar from './AbilityBar';
 
 export function GameBoard() {
-  const { player, floor, floorNumber, gameStarted, gameOver, victoryMessage, interaction, combatText, lastMoveDirection, startNewGame, movePlayer, resetGame, toggleInventory } = useGameStore();
+  const { player, floor, floorNumber, gameStarted, gameOver, victoryMessage, interaction, combatText, lastMoveDirection, shopOpen, shopInventory, selectedShopSlot, startNewGame, movePlayer, resetGame, toggleInventory, selectShopItem, buyShopItem } = useGameStore();
   const [animating, setAnimating] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<{
     item: InventoryItem;
@@ -90,10 +91,21 @@ export function GameBoard() {
     if (!gameStarted) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Handle ESC to close shop
+      if (e.key === 'Escape' && shopOpen) {
+        e.preventDefault();
+        toggleInventory(); // Close inventory
+        useGameStore.getState().toggleShop(); // Close shop
+        return;
+      }
+
       // Handle inventory toggle
       if (e.key === 'i' || e.key === 'I' || e.key === 'Tab') {
         e.preventDefault();
-        toggleInventory();
+        // If shop is open, don't toggle inventory (it should stay open)
+        if (!shopOpen) {
+          toggleInventory();
+        }
         return;
       }
 
@@ -131,7 +143,7 @@ export function GameBoard() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameStarted, gameOver, movePlayer, toggleInventory]);
+  }, [gameStarted, gameOver, movePlayer, toggleInventory, shopOpen]);
 
   const renderTile = (tile: Tile) => {
     let bgColor = 'bg-gray-800';
@@ -493,6 +505,29 @@ export function GameBoard() {
                   </div>
                 );
               }
+              if (e.kind === 'npc') {
+                const data = e.data as Record<string, unknown>;
+                const npcType = data?.npcType as string | undefined;
+                
+                // Determine NPC icon based on type
+                const npcIcon = npcType === 'shopkeeper' ? '🏪' : '👤';
+                
+                return (
+                  <div
+                    key={e.id}
+                    className="absolute text-yellow-400 text-2xl flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
+                    style={{
+                      left: e.pos.x * TILE_SIZE,
+                      top: e.pos.y * TILE_SIZE,
+                      width: TILE_SIZE,
+                      height: TILE_SIZE,
+                    }}
+                    title={`Shopkeeper (${e.pos.x}, ${e.pos.y})`}
+                  >
+                    {npcIcon}
+                  </div>
+                );
+              }
               return null;
             })}
           </div>
@@ -520,9 +555,36 @@ export function GameBoard() {
       {/* Inventory Panel */}
       <InventoryPanel />
 
+      {/* Shop Panel */}
+      {shopOpen && (
+        <ShopPanel
+          shopInventory={shopInventory}
+          selectedSlot={selectedShopSlot}
+          onItemClick={buyShopItem}
+          onItemHover={(item, idx) => {
+            if (item) {
+              const rect = document.querySelector(`[data-shop-slot="${idx}"]`)?.getBoundingClientRect();
+              if (rect) {
+                setHoveredItem({
+                  item,
+                  position: { x: rect.right + 10, y: rect.top + rect.height / 2 },
+                });
+              }
+            } else {
+              setHoveredItem(null);
+            }
+          }}
+        />
+      )}
+
       {/* Tooltip - appears on hover */}
       {hoveredItem && (
-        <ItemTooltip item={hoveredItem.item} position={hoveredItem.position} />
+        <ItemTooltip 
+          item={hoveredItem.item} 
+          position={hoveredItem.position} 
+          effectiveStats={effectiveStats}
+          alignment={shopOpen ? 'right' : 'left'}
+        />
       )}
 
       {hoveredEnemy && (
