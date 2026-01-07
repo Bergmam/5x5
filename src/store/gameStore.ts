@@ -1,15 +1,16 @@
 import { create } from 'zustand';
-import { MapFloor, InventoryItem, EnemyData } from '../game/types';
+import { MapFloor, InventoryItem } from '../game/types';
 import { Player, attemptMove, Direction, MoveResult } from '../game/movement';
 import { generateFloor } from '../game/generator';
-import { useItem as applyItemUse, removeItem, getInventoryCount } from '../game/inventory';
-import { runEnemyTurn as runEnemyTurnModule } from '../game/enemyAI';
+import { useItem as applyItemUse, removeItem } from '../game/inventory';
 import { calculateEffectiveStats, type PlayerStats } from '../game/stats';
 import { ABILITIES, getAbilityBarFromInventory, isDirectionalAbility, normalizeDirection, type AbilityId } from '../game/abilities';
 import { generateShopInventory } from '../data/itemLoader';
 import { createRng } from '../game/rng';
+import { createShopSlice, type ShopSlice } from './slices/shopSlice';
+import { createCombatSlice, type CombatSlice } from './slices/combatSlice';
 
-interface GameState {
+interface GameState extends ShopSlice, CombatSlice {
   // Current game state
   player: Player;
   floor: MapFloor | null;
@@ -22,11 +23,6 @@ interface GameState {
   // Inventory UI state
   inventoryOpen: boolean;
   selectedItemSlot: number | null;
-
-  // Shop UI state
-  shopOpen: boolean;
-  shopInventory: (InventoryItem | null)[];
-  selectedShopSlot: number | null;
 
   // Abilities
   abilityBar: (AbilityId | null)[]; // 8 slots
@@ -57,9 +53,6 @@ interface GameState {
   _enqueueCombatText: (events: GameState['combatText'][number] | Array<GameState['combatText'][number]>) => void;
   _removeCombatText: (id: string) => void;
 
-  // Internal helper so non-movement actions (like items) can advance enemies too.
-  _runEnemyTurnAfterPlayerAction: () => void;
-
   // Actions
   startNewGame: (seed?: string, useTemplates?: boolean) => void;
   movePlayer: (direction: Direction) => MoveResult;
@@ -69,11 +62,7 @@ interface GameState {
   selectItem: (slotIndex: number | null) => void;
   useItem: (slotIndex: number) => void;
   destroyItem: (slotIndex: number) => void;
-  sellItem: (slotIndex: number) => void;
   castAbility: (slotIndex: number) => void;
-  toggleShop: () => void;
-  selectShopItem: (slotIndex: number | null) => void;
-  buyShopItem: (slotIndex: number) => void;
 }
 
 const createInitialPlayer = (): Player => ({
@@ -116,6 +105,10 @@ function makeCombatTextId(prefix: string) {
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
+  // Merge slices
+  ...createShopSlice(set, get),
+  ...createCombatSlice(set, get),
+  
   player: createInitialPlayer(),
   floor: null,
   turnCount: 0,
@@ -125,9 +118,6 @@ export const useGameStore = create<GameState>((set, get) => ({
   victoryMessage: null,
   inventoryOpen: false,
   selectedItemSlot: null,
-  shopOpen: false,
-  shopInventory: Array(25).fill(null),
-  selectedShopSlot: null,
   interaction: null,
 
   combatText: [],
@@ -234,74 +224,6 @@ export const useGameStore = create<GameState>((set, get) => ({
       return { success: false, reason: 'game-not-active' };
     }
 
-    const triggerDeathIfNeeded = () => {
-      const s = get();
-      if (s.gameOver) return;
-      if (s.player.hp > 0) return;
-      set({
-        gameOver: true,
-        victoryMessage: 'You died.',
-      });
-    };
-
-    const runEnemyTurnAfterPlayerAction = () => {
-      const postState = get();
-      if (!postState.floor) return;
-
-      const effective = getEffectivePlayerStats(postState.player);
-
-      const enemyProcessed = runEnemyTurnModule({
-        floor: postState.floor,
-        playerPos: postState.player.pos,
-      });
-      set(enemyProcessed);
-
-      // Apply enemy melee attacks to player HP
-      if (enemyProcessed.attacks && enemyProcessed.attacks.length > 0) {
-        let totalDamage = 0;
-        const floaterEvents: GameState['combatText'] = [];
-
-        for (const atk of enemyProcessed.attacks) {
-          const attacker = postState.floor!.entities.find((e) => e.id === atk.attackerId);
-          if (!attacker || attacker.kind !== 'enemy') continue;
-          const data = attacker.data as EnemyData;
-          const dmg = Math.max(0, (data.damage || 0) - effective.armor);
-          totalDamage += dmg;
-
-          floaterEvents.push({
-            id: makeCombatTextId('enemy-dmg'),
-            kind: 'damage',
-            amount: dmg,
-            from: { ...attacker.pos },
-            to: { ...postState.player.pos },
-            icon: '⚔',
-            createdAt: Date.now(),
-            ttlMs: 650,
-          });
-        }
-
-        // Always show floaters (even for 0 damage) when an attack occurred.
-        if (floaterEvents.length > 0) {
-          get()._enqueueCombatText(floaterEvents);
-        }
-
-        if (totalDamage > 0) {
-          set((s) => ({
-            player: { ...s.player, hp: Math.max(0, s.player.hp - totalDamage) },
-            interaction: enemyProcessed.interaction || s.interaction,
-          }));
-          triggerDeathIfNeeded();
-        }
-      }
-
-      // Auto-clear transient aggro/attack interaction after a brief delay
-      if (enemyProcessed.interaction?.type === 'enemy-aggro' || enemyProcessed.interaction?.type === 'enemy-attack') {
-        setTimeout(() => {
-          set((s) => ({ interaction: s.interaction && (s.interaction.type === 'enemy-aggro' || s.interaction.type === 'enemy-attack') ? null : s.interaction }));
-        }, 500);
-      }
-    };
-
     const result = attemptMove(state.player, direction, state.floor);
     const normalizedDirection = normalizeDirection(direction);
     
@@ -334,17 +256,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         const shopkeeper = updatedFloor.entities.find(
           (e) => e.kind === 'npc' && (e.data as Record<string, unknown>)?.npcType === 'shopkeeper'
         );
-        if (shopkeeper) {
-          const distance = Math.abs(updatedPlayer.pos.x - shopkeeper.pos.x) + Math.abs(updatedPlayer.pos.y - shopkeeper.pos.y);
-          // Close shop if player is more than 1 tile away (adjacent tiles are distance 1)
-          if (distance > 1) {
-            set({
-              shopOpen: false,
-              inventoryOpen: false,
-              selectedShopSlot: null,
-            });
-          }
-        }
+        get()._closeShopIfTooFar(updatedPlayer.pos, shopkeeper?.pos || null);
       }
 
       // Check for exit - generate next floor
@@ -362,11 +274,11 @@ export const useGameStore = create<GameState>((set, get) => ({
           },
         }));
 
-        triggerDeathIfNeeded();
+        get()._triggerDeathIfNeeded();
       }
 
       // Run enemy turns after player movement
-      runEnemyTurnAfterPlayerAction();
+      get()._runEnemyTurnAfterPlayerAction();
     } else if (result.attackedEnemy) {
       // Check if it's an NPC interaction
       if (result.attackedEnemy.kind === 'npc') {
@@ -375,75 +287,19 @@ export const useGameStore = create<GameState>((set, get) => ({
           // Open shop and populate with items
           const shopRng = createRng(`shop-${state.floor!.seed}`);
           const shopItems = generateShopInventory(shopRng);
-          
-          set({
-            shopOpen: true,
-            shopInventory: shopItems,
-            inventoryOpen: true, // Also open inventory for selling
-          });
+          get()._openShop(shopItems);
         }
         // Don't advance turn or run enemy AI for NPC interaction
         return result;
       }
 
-      // Handle attack on enemy
-      const enemy = result.attackedEnemy;
-      const player = state.player;
-      
-      // Calculate damage
-      const enemyData = enemy.data as EnemyData; 
-  const effective = getEffectivePlayerStats(player);
-  const damage = Math.max(0, effective.weaponDamage - (enemyData?.armor || 0));
-
-      // Damage floater (show even 0)
-      get()._enqueueCombatText({
-        id: makeCombatTextId('player-dmg'),
-        kind: 'damage',
-        amount: damage,
-        from: { ...player.pos },
-        to: { ...enemy.pos },
-        icon: '🗡️',
-        createdAt: Date.now(),
-        ttlMs: 650,
-      });
-      
-      // Update enemy HP
-      const newHp = (enemyData?.hp || 0) - damage;
-      
-      // Update floor entities
-      // We map to update the specific enemy, then filter to remove dead ones
-      const newEntities = state.floor.entities.map(e => {
-        if (e.id === enemy.id) {
-          return { ...e, data: { ...e.data, hp: newHp } };
-        }
-        return e;
-      }).filter(e => {
-        if (e.kind !== 'enemy') return true;
-        const data = e.data as EnemyData;
-        return data.hp > 0;
-      });
-      
-      // Set interaction state for animation and update floor
-      set({
-        interaction: {
-          type: 'attack',
-          targetPos: enemy.pos,
-          timestamp: Date.now()
-        },
-        floor: {
-          ...state.floor,
-          entities: newEntities
-        },
-        turnCount: state.turnCount + 1
-      });
-
-      // Enemy reacts immediately (damage trigger for follow)
-      runEnemyTurnAfterPlayerAction();
+      // Handle attack on enemy - delegate to combat slice
+      get()._handlePlayerAttackOnEnemy(result.attackedEnemy, state.player, state.floor);
     } else {
       // No movement occurred (blocked/out-of-bounds/etc). Treat as a turn so enemies can react.
       // This fixes cases where enemies only aggro after you successfully move adjacent.
       set((s) => ({ turnCount: s.turnCount + 1 }));
-      runEnemyTurnAfterPlayerAction();
+      get()._runEnemyTurnAfterPlayerAction();
     }
 
     return result;
@@ -475,59 +331,6 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   selectItem: (slotIndex: number | null) => {
     set({ selectedItemSlot: slotIndex });
-  },
-
-  // Shared enemy-turn runner for non-movement actions (items, etc)
-  // Keeps behavior consistent: any turn-consuming action should advance the enemy turn.
-  _runEnemyTurnAfterPlayerAction: () => {
-    const state = get();
-    if (!state.floor || state.gameOver) return;
-
-    const effective = getEffectivePlayerStats(state.player);
-
-    const triggerDeathIfNeeded = () => {
-      const s = get();
-      if (s.gameOver) return;
-      if (s.player.hp > 0) return;
-      set({
-        gameOver: true,
-        victoryMessage: 'You died.',
-      });
-    };
-
-    const enemyProcessed = runEnemyTurnModule({
-      floor: state.floor,
-      playerPos: state.player.pos,
-    });
-    set(enemyProcessed);
-
-    if (enemyProcessed.attacks && enemyProcessed.attacks.length > 0) {
-      const totalDamage = enemyProcessed.attacks.reduce((sum, atk) => {
-        const attacker = state.floor!.entities.find((e) => e.id === atk.attackerId);
-        if (!attacker || attacker.kind !== 'enemy') return sum;
-        const data = attacker.data as EnemyData;
-        const dmg = Math.max(5, (data.damage || 5) - effective.armor);
-        return sum + dmg;
-      }, 0);
-      if (totalDamage > 0) {
-        set((s) => ({
-          player: { ...s.player, hp: Math.max(0, s.player.hp - totalDamage) },
-          interaction: enemyProcessed.interaction || s.interaction,
-        }));
-        triggerDeathIfNeeded();
-      }
-    }
-
-    if (enemyProcessed.interaction?.type === 'enemy-aggro' || enemyProcessed.interaction?.type === 'enemy-attack') {
-      setTimeout(() => {
-        set((s) => ({
-          interaction:
-            s.interaction && (s.interaction.type === 'enemy-aggro' || s.interaction.type === 'enemy-attack')
-              ? null
-              : s.interaction,
-        }));
-      }, 500);
-    }
   },
 
   useItem: (slotIndex: number) => {
@@ -567,31 +370,6 @@ export const useGameStore = create<GameState>((set, get) => ({
     const clamped = clampResourcesToEffectiveMax({
       ...state.player,
       inventory: newInventory,
-    });
-
-    set({
-      player: clamped,
-      selectedItemSlot: null,
-      abilityBar: getAbilityBarFromInventory(clamped.inventory, 8),
-    });
-  },
-
-  sellItem: (slotIndex: number) => {
-    const state = get();
-    const item = state.player.inventory[slotIndex];
-    
-    if (!item) {
-      return;
-    }
-
-    // Add gold to player
-    const goldToAdd = item.saleValue || 0;
-    const newInventory = removeItem(state.player.inventory, slotIndex);
-
-    const clamped = clampResourcesToEffectiveMax({
-      ...state.player,
-      inventory: newInventory,
-      gold: state.player.gold + goldToAdd,
     });
 
     set({
@@ -675,58 +453,5 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     // Casting an ability consumes the player's turn.
     get()._runEnemyTurnAfterPlayerAction();
-  },
-
-  toggleShop: () => {
-    set((s) => ({ 
-      shopOpen: !s.shopOpen,
-      // Close inventory when shop closes
-      inventoryOpen: s.shopOpen ? false : s.inventoryOpen,
-    }));
-  },
-
-  selectShopItem: (slotIndex: number | null) => {
-    set({ selectedShopSlot: slotIndex });
-  },
-
-  buyShopItem: (slotIndex: number) => {
-    const state = get();
-    const item = state.shopInventory[slotIndex];
-    
-    if (!item) {
-      return; // No item in this slot
-    }
-
-    // Check if player has enough gold
-    if (state.player.gold < item.saleValue) {
-      console.log('Not enough gold!');
-      return;
-    }
-
-    // Check if player has inventory space
-    const emptySlot = state.player.inventory.findIndex((slot) => slot === null);
-    if (emptySlot === -1) {
-      console.log('Inventory full!');
-      return;
-    }
-
-    // Perform the purchase
-    const newInventory = [...state.player.inventory];
-    newInventory[emptySlot] = item;
-
-    // Remove item from shop (or you could keep it available)
-    const newShopInventory = [...state.shopInventory];
-    newShopInventory[slotIndex] = null;
-
-    set({
-      player: {
-        ...state.player,
-        gold: state.player.gold - item.saleValue,
-        inventory: newInventory,
-      },
-      shopInventory: newShopInventory,
-      selectedShopSlot: null,
-      abilityBar: getAbilityBarFromInventory(newInventory, 8),
-    });
   },
 }));
