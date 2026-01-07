@@ -13,6 +13,7 @@ function abilityItem(abilityId: 'fireball' | 'shockwave'): InventoryItem {
     rarity: 'common',
     kind: 'ability-granting',
     abilityId,
+    saleValue: 50,
   };
 }
 

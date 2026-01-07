@@ -21,6 +21,7 @@ describe('effective player stats', () => {
       rarity: 'uncommon',
       kind: 'passive',
       stats: { armor: 5 },
+      saleValue: 40,
     };
     inv[1] = {
       id: 'sharp-blade',
@@ -30,6 +31,7 @@ describe('effective player stats', () => {
       rarity: 'rare',
       kind: 'passive',
       stats: { weaponDamage: 10 },
+      saleValue: 60,
     };
     inv[2] = {
       id: 'mana-crystal',
@@ -39,6 +41,7 @@ describe('effective player stats', () => {
       rarity: 'epic',
       kind: 'passive',
       stats: { maxMp: 15, spellDamage: 5 },
+      saleValue: 100,
     };
 
     const effective = calculateEffectiveStats(base, inv);
@@ -69,6 +72,7 @@ describe('effective player stats', () => {
         icon: '🪨',
         rarity: 'common',
         kind: 'passive',
+        saleValue: 10,
       },
     ];
 

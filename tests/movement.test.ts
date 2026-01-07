@@ -114,6 +114,7 @@ describe('attemptMove', () => {
       spellDamage: 20,
       armor: 5,
       inventory: [],
+      gold: 0,
     };
   });
 
@@ -232,6 +233,7 @@ describe('attemptMove', () => {
       icon: '📦',
       rarity: 'common' as const,
       kind: 'passive' as const,
+      saleValue: 10,
     }));
 
     // Add an item to the right (with itemId in data)

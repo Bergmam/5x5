@@ -24,6 +24,7 @@ describe('Inventory System', () => {
     consumable: {
       healHp: 20,
     },
+    saleValue: 25,
   };
 
   const ironPlate: InventoryItem = {
@@ -36,6 +37,7 @@ describe('Inventory System', () => {
     stats: {
       armor: 5,
     },
+    saleValue: 40,
   };
 
   const sharpBlade: InventoryItem = {
@@ -48,6 +50,7 @@ describe('Inventory System', () => {
     stats: {
       weaponDamage: 10,
     },
+    saleValue: 60,
   };
 
   const manaCrystal: InventoryItem = {
@@ -61,6 +64,7 @@ describe('Inventory System', () => {
       maxMp: 15,
       spellDamage: 5,
     },
+    saleValue: 100,
   };
 
   const manaPotion: InventoryItem = {
@@ -73,6 +77,7 @@ describe('Inventory System', () => {
     consumable: {
       restoreMp: 30,
     },
+    saleValue: 25,
   };
 
   beforeEach(() => {
@@ -94,6 +99,7 @@ describe('Inventory System', () => {
       spellDamage: 5,
       pos: { x: 0, y: 0 },
       inventory: Array(25).fill(null),
+      gold: 0,
     };
   });
 
