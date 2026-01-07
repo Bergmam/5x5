@@ -7,6 +7,7 @@
       "icon": "🧪",
       "rarity": "common",
       "kind": "consumable",
+      "saleValue": 10,
       "consumable": {
         "healHp": 20
       }
@@ -18,6 +19,7 @@
       "icon": "🔮",
       "rarity": "common",
       "kind": "consumable",
+      "saleValue": 10,
       "consumable": {
         "restoreMp": 20
       }
@@ -29,8 +31,21 @@
       "icon": "🛡️",
       "rarity": "uncommon",
       "kind": "passive",
+      "saleValue": 25,
       "stats": {
         "armor": 5
+      }
+    },
+    {
+      "id": "heart-amulet",
+      "name": "Heart Amulet",
+      "description": "Increases maximum health",
+      "icon": "💖",
+      "rarity": "uncommon",
+      "kind": "passive",
+      "saleValue": 30,
+      "stats": {
+        "maxHp": 20
       }
     },
     {
@@ -40,6 +55,7 @@
       "icon": "🗡️",
       "rarity": "rare",
       "kind": "passive",
+      "saleValue": 50,
       "stats": {
         "weaponDamage": 10
       }
@@ -51,6 +67,7 @@
       "icon": "💎",
       "rarity": "epic",
       "kind": "passive",
+      "saleValue": 100,
       "stats": {
         "maxMp": 15,
         "spellDamage": 5
@@ -63,6 +80,7 @@
       "icon": "🔥",
       "rarity": "uncommon",
       "kind": "ability-granting",
+      "saleValue": 40,
       "abilityId": "fireball"
     },
     {
@@ -72,6 +90,7 @@
       "icon": "💥",
       "rarity": "rare",
       "kind": "ability-granting",
+      "saleValue": 60,
       "abilityId": "shockwave"
     },
     {
@@ -80,7 +99,8 @@
       "description": "Regain 5 HP for every floor you climb",
       "icon": "❤️",
       "rarity": "rare",
-      "kind": "relic"
+      "kind": "relic",
+      "saleValue": 75
     }
   ]
 }

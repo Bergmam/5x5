@@ -226,7 +226,7 @@ describe('Inventory System', () => {
       }
     });
 
-    it('clamps healing to maxHp', () => {
+    it('applies healing without clamping (clamping happens at store level)', () => {
       const inventory = addItem(emptyInventory, healingPotion);
       expect(inventory).not.toBeNull();
       if (inventory) {
@@ -234,12 +234,13 @@ describe('Inventory System', () => {
         testPlayer.hp = 95; // Only 5 HP missing
 
         const result = useItem(testPlayer, 0);
-        expect(result.player.hp).toBe(100);
+        // useItem no longer clamps - it adds the full heal amount
+        expect(result.player.hp).toBe(115); // 95 + 20
         expect(result.player.maxHp).toBe(100);
       }
     });
 
-    it('clamps MP restore to maxMp', () => {
+    it('applies MP restore without clamping (clamping happens at store level)', () => {
       const inventory = addItem(emptyInventory, manaPotion);
       expect(inventory).not.toBeNull();
       if (inventory) {
@@ -247,7 +248,8 @@ describe('Inventory System', () => {
         testPlayer.mp = 40; // Only 10 MP missing
 
         const result = useItem(testPlayer, 0);
-        expect(result.player.mp).toBe(50);
+        // useItem no longer clamps - it adds the full restore amount
+        expect(result.player.mp).toBe(70); // 40 + 30
         expect(result.player.maxMp).toBe(50);
       }
     });
@@ -270,7 +272,7 @@ describe('Inventory System', () => {
       expect(result.inventory).toEqual(testPlayer.inventory);
     });
 
-    it('heals when already at full HP (still consumes item)', () => {
+    it('heals even when already at full HP (clamping happens at store level)', () => {
       const inventory = addItem(emptyInventory, healingPotion);
       expect(inventory).not.toBeNull();
       if (inventory) {
@@ -278,7 +280,8 @@ describe('Inventory System', () => {
         testPlayer.hp = 100;
 
         const result = useItem(testPlayer, 0);
-        expect(result.player.hp).toBe(100);
+        // useItem adds the heal amount, store will clamp it
+        expect(result.player.hp).toBe(120); // 100 + 20
         expect(result.inventory[0]).toBeNull();
       }
     });

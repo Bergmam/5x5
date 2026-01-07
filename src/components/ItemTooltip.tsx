@@ -58,8 +58,14 @@ export default function ItemTooltip({ item, position }: ItemTooltipProps) {
         </div>
       )}
       
-      <div className="text-gray-400 text-sm italic">
+      <div className="text-gray-400 text-sm italic mb-2">
         "{item.description}"
+      </div>
+      
+      <div className="border-t border-gray-700 my-2" />
+      
+      <div className="text-yellow-400 text-sm">
+        Sell value: {item.saleValue} gold
       </div>
     </div>
   );

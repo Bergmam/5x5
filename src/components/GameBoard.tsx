@@ -13,7 +13,7 @@ import EnemyTooltip from './EnemyTooltip';
 import AbilityBar from './AbilityBar';
 
 export function GameBoard() {
-  const { player, floor, floorNumber, gameStarted, gameOver, victoryMessage, interaction, combatText, startNewGame, movePlayer, resetGame, toggleInventory } = useGameStore();
+  const { player, floor, floorNumber, gameStarted, gameOver, victoryMessage, interaction, combatText, lastMoveDirection, startNewGame, movePlayer, resetGame, toggleInventory } = useGameStore();
   const [animating, setAnimating] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<{
     item: InventoryItem;
@@ -279,6 +279,9 @@ export function GameBoard() {
         <div className="text-lg">
           <span className="font-semibold text-cyan-400">MP:</span> {player.mp}/{effectiveStats.maxMp}
         </div>
+        <div className="text-lg">
+          <span className="font-semibold text-yellow-400">Gold:</span> {player.gold}
+        </div>
       </div>
 
       {/* Left Side Stats Panel */}
@@ -325,7 +328,7 @@ export function GameBoard() {
                   ? 'text-green-300'
                   : e.kind === 'mp'
                     ? 'text-cyan-300'
-                    : (e.icon === '⚔' ? 'text-red-300' : e.icon === '🗡️' ? 'text-yellow-200' : 'text-orange-200');
+                    : 'text-red-300';
 
               const outline: React.CSSProperties = {
                 textShadow:
@@ -357,7 +360,7 @@ export function GameBoard() {
                         ? 'bg-green-500/70'
                         : e.kind === 'mp'
                           ? 'bg-cyan-500/70'
-                          : (e.icon === '⚔' ? 'bg-red-500/70' : e.icon === '🗡️' ? 'bg-yellow-500/70' : 'bg-orange-500/70'))
+                          : 'bg-red-500/70')
                     }
                     style={
                       {
@@ -392,7 +395,7 @@ export function GameBoard() {
               }}
               title="Player"
             >
-              ●
+              {lastMoveDirection?.y === -1 ? '↑' : lastMoveDirection?.y === 1 ? '↓' : lastMoveDirection?.x === -1 ? '←' : lastMoveDirection?.x === 1 ? '→' : '●'}
             </div>
 
             {/* Enemies and items */}

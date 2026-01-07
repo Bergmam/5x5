@@ -58,13 +58,13 @@ export function useItem(
 
   const newPlayer = { ...player };
   
-  // Apply consumable effects
+  // Apply consumable effects - don't clamp here, let the caller handle clamping to effective max
   if (item.consumable.healHp) {
-    newPlayer.hp = Math.min(newPlayer.maxHp, newPlayer.hp + item.consumable.healHp);
+    newPlayer.hp = newPlayer.hp + item.consumable.healHp;
   }
   
   if (item.consumable.restoreMp) {
-    newPlayer.mp = Math.min(newPlayer.maxMp, newPlayer.mp + item.consumable.restoreMp);
+    newPlayer.mp = newPlayer.mp + item.consumable.restoreMp;
   }
 
   // Remove item from inventory

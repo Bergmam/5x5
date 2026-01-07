@@ -74,6 +74,7 @@ const createInitialPlayer = (): Player => ({
   weaponDamage: 15,
   spellDamage: 20,
   armor: 5,
+  gold: 0,
   inventory: Array(25).fill(null),
 });
 
@@ -286,10 +287,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     };
 
     const result = attemptMove(state.player, direction, state.floor);
-
-  // Always update facing direction (even if the move is blocked/no-op).
-  // This lets directional abilities use the player's most recent intent.
-  set({ lastMoveDirection: normalizeDirection(direction) });
+    const normalizedDirection = normalizeDirection(direction);
+    
+    set({ lastMoveDirection: normalizedDirection });
 
     if (result.success && result.newPos) {
       // Prepare updates
