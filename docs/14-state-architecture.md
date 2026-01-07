@@ -9,17 +9,18 @@ This project uses **Zustand** for state management with a **slice pattern** to o
 ### File Structure
 ```
 src/store/
-  ├── gameStore.ts (292 lines) - Main orchestration & game lifecycle
+  ├── gameStore.ts (255 lines) - Main orchestration & game lifecycle
   └── slices/
       ├── shopSlice.ts (132 lines) - Shop economy & transactions
       ├── combatSlice.ts (163 lines) - Combat mechanics & enemy AI
       ├── inventorySlice.ts (101 lines) - Inventory management
-      └── movementSlice.ts (153 lines) - Player movement & interactions
+      ├── movementSlice.ts (153 lines) - Player movement & interactions
+      └── visualEffectsSlice.ts (83 lines) - Animations & combat text
 ```
 
 ### Benefits of This Architecture
-- **Separation of Concerns**: Each slice handles a specific domain (shop, combat, inventory, movement)
-- **Maintainability**: Smaller files (100-165 lines) are easier to understand and modify
+- **Separation of Concerns**: Each slice handles a specific domain (shop, combat, inventory, movement, visual effects)
+- **Maintainability**: Smaller files (83-163 lines) are easier to understand and modify
 - **Testability**: Isolated concerns make unit testing more straightforward
 - **Reusability**: Slices can be composed together or tested independently
 - **Reduced Complexity**: Main gameStore focuses on orchestration, not implementation details
@@ -176,6 +177,31 @@ export const useGameStore = create<GameState>((set, get) => ({
 - Shop proximity checking
 - Floor transition triggering
 - Delegates to combat slice for enemy attacks
+
+### 5. Visual Effects Slice (`visualEffectsSlice.ts`)
+
+**Responsibility**: Manages all visual feedback and animation state
+
+**State**:
+- `interaction: object | null` - Animation state for attacks, bumps, ability casts, enemy aggro
+- `combatText: array` - Floating damage/heal numbers with timing info
+
+**Internal Actions**:
+- `_enqueueCombatText(events)` - Add floating combat text with auto-expiry
+- `_removeCombatText(id)` - Remove expired combat text
+
+**Utility Function**:
+- `makeCombatTextId(prefix)` - Generate unique IDs for combat text events (exported for use in other slices)
+
+**Key Features**:
+- Floating combat text for damage, healing, and MP changes
+- Animation timestamps for attack/ability effects
+- Auto-expiry with setTimeout cleanup
+- Capped array size (max 30 entries) to prevent memory leaks
+- Tracks attacker IDs, target positions, ability icons
+- Support for enemy aggro animations with multiple enemy IDs
+
+**Design Note**: This slice is presentation-focused and has no game logic dependencies, making it easy to extend with screen shake, particles, etc.
 
 ## Communication Between Slices
 
@@ -340,7 +366,7 @@ Add your new slice to this document's "Existing Slices" section.
 
 ## Refactoring History
 
-### January 2026 - Initial Slice Extraction
+### January 2026 - Slice Extraction Project
 
 **Original State**: Single `gameStore.ts` file with 732 lines
 
@@ -349,24 +375,25 @@ Add your new slice to this document's "Existing Slices" section.
 2. **Combat Slice** (163 lines) - Unified combat mechanics, eliminated duplicate enemy turn logic
 3. **Inventory Slice** (101 lines) - Isolated inventory UI and item usage
 4. **Movement Slice** (153 lines) - Extracted after internal refactoring with helper functions
+5. **Visual Effects Slice** (83 lines) - Separated animations and combat text from game logic
 
 **Final State**: 
-- `gameStore.ts`: 292 lines (60% reduction!)
-- 4 focused slices: 549 lines total
+- `gameStore.ts`: 255 lines (65% reduction from original!)
+- 5 focused slices: 632 lines total
 - All 144 tests passing
 - No functionality lost
 
-**Key Achievement**: Improved maintainability while preserving all game features and test coverage.
+**Key Achievement**: Transformed a 732-line monolithic file into a clean, modular architecture with clear separation of concerns. Each slice is independently maintainable and the system is easier to extend.
 
 ## Future Slice Candidates
 
 As the project grows, consider creating slices for:
 
-- **Abilities Slice**: Ability casting, cooldowns, MP costs, targeting
-- **Visual Effects Slice**: Animations, particles, screen shake, floating text
-- **Progression Slice**: Level ups, unlocks, achievements, statistics
+- **Abilities Slice**: Ability casting, cooldowns, MP costs, targeting, ability bar management
+- **Progression Slice**: Level ups, unlocks, achievements, statistics, floor scaling
 - **Dialog Slice**: NPC conversations, quest dialogs, story events
 - **Audio Slice**: Sound effects, music, volume control
+- **Advanced Visual Effects**: Particles, screen shake, camera effects (extend existing visual effects slice)
 
 ## Questions?
 

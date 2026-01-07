@@ -9,6 +9,7 @@
  * - CombatSlice: Combat mechanics and enemy AI (src/store/slices/combatSlice.ts)
  * - InventorySlice: Inventory management (src/store/slices/inventorySlice.ts)
  * - MovementSlice: Player movement and interactions (src/store/slices/movementSlice.ts)
+ * - VisualEffectsSlice: Animations and combat text (src/store/slices/visualEffectsSlice.ts)
  * 
  * For detailed documentation on the slice architecture and how to create new slices,
  * see: docs/14-state-architecture.md
@@ -26,8 +27,9 @@ import { createShopSlice, type ShopSlice } from './slices/shopSlice';
 import { createCombatSlice, type CombatSlice } from './slices/combatSlice';
 import { createInventorySlice, type InventorySlice } from './slices/inventorySlice';
 import { createMovementSlice, type MovementSlice } from './slices/movementSlice';
+import { createVisualEffectsSlice, type VisualEffectsSlice, makeCombatTextId } from './slices/visualEffectsSlice';
 
-interface GameState extends ShopSlice, CombatSlice, InventorySlice, MovementSlice {
+export interface GameState extends ShopSlice, CombatSlice, InventorySlice, MovementSlice, VisualEffectsSlice {
   // Current game state
   player: Player;
   floor: MapFloor | null;
@@ -40,31 +42,6 @@ interface GameState extends ShopSlice, CombatSlice, InventorySlice, MovementSlic
 
   // Abilities
   abilityBar: (AbilityId | null)[]; // 8 slots
-  
-  // Animation state
-  interaction: {
-    type: 'attack' | 'bump' | 'enemy-aggro' | 'enemy-attack' | 'ability';
-    targetPos: { x: number; y: number };
-    timestamp: number;
-    attackerId?: string;
-    aggroEnemyIds?: string[];
-    abilityId?: AbilityId;
-  } | null;
-
-  // Floating combat text (damage numbers, etc)
-  combatText: Array<{
-    id: string;
-    kind: 'damage' | 'heal' | 'mp';
-    amount: number;
-    from: { x: number; y: number };
-    to: { x: number; y: number };
-    icon: string;
-    createdAt: number;
-    ttlMs: number;
-  }>;
-
-  _enqueueCombatText: (events: GameState['combatText'][number] | Array<GameState['combatText'][number]>) => void;
-  _removeCombatText: (id: string) => void;
 
   // Actions
   startNewGame: (seed?: string, useTemplates?: boolean) => void;
@@ -99,16 +76,13 @@ function getEffectivePlayerStats(player: Player): PlayerStats {
   );
 }
 
-function makeCombatTextId(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
 export const useGameStore = create<GameState>((set, get) => ({
   // Merge slices
   ...createShopSlice(set, get),
   ...createCombatSlice(set, get),
   ...createInventorySlice(set, get),
   ...createMovementSlice(set, get),
+  ...createVisualEffectsSlice(set, get),
   
   player: createInitialPlayer(),
   floor: null,
@@ -117,32 +91,6 @@ export const useGameStore = create<GameState>((set, get) => ({
   gameStarted: false,
   gameOver: false,
   victoryMessage: null,
-  interaction: null,
-
-  combatText: [],
-
-  _removeCombatText: (id: string) => {
-    set((s) => ({ combatText: s.combatText.filter((e) => e.id !== id) }));
-  },
-
-  _enqueueCombatText: (events) => {
-    const batch = Array.isArray(events) ? events : [events];
-    if (batch.length === 0) return;
-
-    set((s) => {
-      const next = [...s.combatText, ...batch];
-      // cap to avoid unbounded growth if something goes wrong
-      const capped = next.length > 30 ? next.slice(next.length - 30) : next;
-      return { combatText: capped };
-    });
-
-    // Schedule expiry per event
-    for (const e of batch) {
-      setTimeout(() => {
-        get()._removeCombatText(e.id);
-      }, e.ttlMs);
-    }
-  },
 
   abilityBar: getAbilityBarFromInventory(createInitialPlayer().inventory, 8),
 
