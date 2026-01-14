@@ -19,10 +19,12 @@ export function GameBoard() {
   const [hoveredItem, setHoveredItem] = useState<{
     item: InventoryItem;
     position: { x: number; y: number };
+    entityId?: string; // Track the entity ID for validation
   } | null>(null);
   const [hoveredEnemy, setHoveredEnemy] = useState<{
     enemy: EnemyData;
     position: { x: number; y: number };
+    entityId: string; // Track the entity ID for validation
   } | null>(null);
   const TILE_SIZE = 64; // matches w-16 h-16 (~64px)
 
@@ -85,6 +87,34 @@ export function GameBoard() {
       return () => clearTimeout(timer);
     }
   }, [interaction]);
+
+  // Clear enemy tooltip if the hovered enemy no longer exists (died)
+  useEffect(() => {
+    if (!hoveredEnemy || !floor) return;
+    
+    // Check if the enemy entity still exists by its ID
+    const enemyStillExists = floor.entities.some(
+      (e) => e.id === hoveredEnemy.entityId && e.kind === 'enemy'
+    );
+    
+    if (!enemyStillExists) {
+      setHoveredEnemy(null);
+    }
+  }, [floor, hoveredEnemy]);
+
+  // Clear item tooltip if the hovered item no longer exists (picked up)
+  useEffect(() => {
+    if (!hoveredItem || !floor) return;
+    
+    // Check if the item entity still exists by its ID
+    const itemStillExists = hoveredItem.entityId 
+      ? floor.entities.some((e) => e.id === hoveredItem.entityId)
+      : true; // If no entityId (shop items), keep showing
+    
+    if (!itemStillExists) {
+      setHoveredItem(null);
+    }
+  }, [floor, hoveredItem]);
 
   // Keyboard input handling
   useEffect(() => {
@@ -438,6 +468,7 @@ export function GameBoard() {
                       const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
                       setHoveredEnemy({
                         enemy: data,
+                        entityId: e.id,
                         position: {
                           x: rect.left - 10,
                           y: rect.top,
@@ -491,6 +522,7 @@ export function GameBoard() {
                       const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
                       setHoveredItem({
                         item: itemDef,
+                        entityId: e.id,
                         position: {
                           x: rect.left - 10,
                           y: rect.top,
