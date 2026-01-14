@@ -14,7 +14,7 @@ export default function ShopPanel({
   selectedSlot,
 }: ShopPanelProps) {
   return (
-    <div className="fixed left-4 top-1/2 -translate-y-1/2 bg-gray-900 border-2 border-yellow-600 rounded-lg shadow-2xl p-4 w-80">
+    <div className="fixed left-4 bottom-4 bg-gray-900 border-2 border-yellow-600 rounded-lg shadow-2xl p-4 w-80 z-40">
       <div className="text-yellow-400 font-bold text-xl mb-3 text-center">
         Shop
       </div>

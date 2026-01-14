@@ -327,7 +327,7 @@ export function GameBoard() {
       </div>
 
       {/* Left Side Stats Panel */}
-      <div className="fixed left-4 top-1/2 -translate-y-1/2 hidden md:block">
+      <div className="fixed left-4 top-4 hidden md:block">
         <StatsPanel stats={effectiveStats} />
       </div>
 
