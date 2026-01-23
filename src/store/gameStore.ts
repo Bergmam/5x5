@@ -207,8 +207,22 @@ export const useGameStore = create<GameState>((set, get) => ({
     const def = ABILITIES[abilityId];
 
     const mpCost = def.mpCost ?? 0;
-    if (mpCost > 0 && state.player.mp < mpCost) {
-      return;
+    
+    // Special handling for teleport: can use HP if not enough MP
+    let usedHp = false;
+    if (abilityId === 'teleport' && mpCost > 0) {
+      if (state.player.mp >= mpCost) {
+        // Use MP normally
+        usedHp = false;
+      } else {
+        // Use HP instead (even if it kills the player)
+        usedHp = true;
+      }
+    } else {
+      // Normal MP cost check for other abilities
+      if (mpCost > 0 && state.player.mp < mpCost) {
+        return;
+      }
     }
 
     const result = def.execute({
@@ -219,6 +233,36 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
 
     if (!result.didCast) return;
+
+    // Handle teleport position change
+    if (abilityId === 'teleport' && result.interaction?.targetPos) {
+      const newHp = usedHp ? state.player.hp - mpCost : state.player.hp;
+      const isDead = newHp <= 0;
+      
+      set((s) => ({
+        player: {
+          ...s.player,
+          pos: { ...result.interaction!.targetPos },
+          mp: usedHp ? s.player.mp : Math.max(0, s.player.mp - mpCost),
+          hp: Math.max(0, newHp),
+        },
+        floor: s.floor
+          ? {
+              ...s.floor,
+              entities: result.entities,
+            }
+          : s.floor,
+        interaction: result.interaction || s.interaction,
+        turnCount: s.turnCount + 1,
+        gameOver: isDead ? true : s.gameOver,
+        victoryMessage: isDead ? 'You teleported yourself to death!' : s.victoryMessage,
+      }));
+      
+      if (!isDead) {
+        get()._runEnemyTurnAfterPlayerAction();
+      }
+      return;
+    }
 
     // Floaters for ability hits.
     if (result.hitEnemyIds && result.hitEnemyIds.length > 0) {

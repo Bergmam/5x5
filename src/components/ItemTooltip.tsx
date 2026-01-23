@@ -100,7 +100,7 @@ export default function ItemTooltip({ item, position, effectiveStats, alignment 
       <div className="border-t border-gray-700 my-2" />
       
       <div className="text-yellow-400 text-sm">
-        Sell value: {item.saleValue} gold
+        Value: {item.saleValue} gold
       </div>
     </div>
   );

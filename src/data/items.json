@@ -94,6 +94,16 @@
       "abilityId": "shockwave"
     },
     {
+      "id": "teleport-orb",
+      "name": "Orb of Teleportation",
+      "description": "Grants the Teleport ability while carried",
+      "icon": "✨",
+      "rarity": "epic",
+      "kind": "ability-granting",
+      "saleValue": 80,
+      "abilityId": "teleport"
+    },
+    {
       "id": "vitality-charm",
       "name": "Vitality Charm",
       "description": "Regain 5 HP for every floor you climb",

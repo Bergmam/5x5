@@ -3,7 +3,7 @@ import { DIRECTIONS, getEntityAt, getTile, isInBounds } from './movement';
 import type { EnemyData, EntityBase, InventoryItem, MapFloor, Vec2 } from './types';
 import type { PlayerStats } from './stats';
 
-export type AbilityId = 'fireball' | 'shockwave';
+export type AbilityId = 'fireball' | 'shockwave' | 'teleport';
 export type AbilityTargeting = 'instant' | 'directional';
 
 export interface AbilityContext {
@@ -193,6 +193,53 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
       };
     },
   },
+
+  teleport: {
+    id: 'teleport',
+    name: 'Teleport',
+    description: 'Teleport to a random walkable tile. Costs 25 MP or HP if insufficient MP.',
+    icon: '✨',
+    mpCost: 25,
+    targeting: 'instant',
+    execute: ({ floor, playerPos }) => {
+      // Find all walkable tiles without entities
+      const walkableTiles: Vec2[] = [];
+      for (let y = 0; y < floor.height; y++) {
+        for (let x = 0; x < floor.width; x++) {
+          const pos = { x, y };
+          const tile = getTile(floor, pos);
+          const entity = getEntityAt(floor, pos);
+          
+          // Can teleport to walkable tiles without entities (except current position)
+          if (tile?.walkable && !entity && (pos.x !== playerPos.x || pos.y !== playerPos.y)) {
+            walkableTiles.push(pos);
+          }
+        }
+      }
+
+      // If no valid tiles, fail to cast
+      if (walkableTiles.length === 0) {
+        return { didCast: false, entities: floor.entities };
+      }
+
+      // Pick a random tile
+      const randomIndex = Math.floor(Math.random() * walkableTiles.length);
+      const targetPos = walkableTiles[randomIndex];
+
+      return {
+        didCast: true,
+        entities: floor.entities,
+        interaction: {
+          type: 'ability',
+          abilityId: 'teleport',
+          targetPos: { ...targetPos },
+          timestamp: Date.now(),
+        },
+        hitEnemyIds: [],
+        damageByEnemyId: {},
+      };
+    },
+  },
 };
 
 export function getAbilityById(id: AbilityId): AbilityDef {
@@ -213,7 +260,7 @@ export function getAbilityBarFromInventory(
     if (seen.has(item.abilityId)) continue;
 
     // Only include known abilities for now.
-    if (item.abilityId === 'fireball' || item.abilityId === 'shockwave') {
+    if (item.abilityId === 'fireball' || item.abilityId === 'shockwave' || item.abilityId === 'teleport') {
       seen.add(item.abilityId);
       abilityIds.push(item.abilityId);
     }

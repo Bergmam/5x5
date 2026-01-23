@@ -143,7 +143,7 @@ Note: the commands above are a starting point; if you prefer `npm` or `yarn`, su
   - Main store (292 lines) - orchestration & game lifecycle
 - React Router v6 with clean URLs
 - Tailwind CSS with dark theme
-- Vitest testing (144/144 passing)
+- Vitest testing (152/152 passing)
 - Deterministic map generator with seeded RNG
 - Movement system with collision detection
 - Continuous floor progression (auto-generates next floor on exit)
@@ -153,7 +153,7 @@ Note: the commands above are a starting point; if you prefer `npm` or `yarn`, su
 
 ### 🚧 Pending
 - Advanced enemy AI behaviors
-- More abilities (currently has 2: Fireball, Shockwave)
+- More abilities (currently has 3: Fireball, Shockwave, Teleport)
 - Movement animations
 - Floor difficulty scaling
 - Additional item types and rarities

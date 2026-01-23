@@ -34,7 +34,19 @@ export default function AbilityBar() {
           const def = id ? getAbilityById(id) : null;
           const directionalDisabled = !!def && isDirectionalAbility(def.id) && !lastMoveDirection;
           const mpCost = def?.mpCost ?? 0;
-          const mpDisabled = !!def && mpCost > 0 && player.mp < mpCost;
+          
+          // Special handling for teleport: can use HP if not enough MP
+          let mpDisabled = false;
+          if (def && mpCost > 0) {
+            if (def.id === 'teleport') {
+              // Teleport is never disabled - can always use HP if not enough MP
+              mpDisabled = false;
+            } else {
+              // Normal abilities just check MP
+              mpDisabled = player.mp < mpCost;
+            }
+          }
+          
           const disabled = gameOver || !def || directionalDisabled || mpDisabled;
 
           return (
@@ -73,13 +85,22 @@ export default function AbilityBar() {
           <div className="text-gray-100 font-bold">{hovered.name}</div>
           <div className="border-t border-gray-700 my-2" />
           <div className="text-purple-300 text-sm mb-2">
-            Damage: {Math.max(5, effectiveStats.spellDamage)} | MP Cost: {hovered.mpCost || 0}
+            {hovered.id === 'teleport' 
+              ? `Cost: ${hovered.mpCost} MP or HP`
+              : `Damage: ${Math.max(5, effectiveStats.spellDamage)} | MP Cost: ${hovered.mpCost || 0}`
+            }
           </div>
           <div className="text-gray-300 text-sm">{hovered.description}</div>
           {isDirectionalAbility(hovered.id) && !lastMoveDirection && (
             <div className="text-yellow-400 text-xs mt-2">Move once to set a facing direction.</div>
           )}
-          {(hovered.mpCost ?? 0) > 0 && player.mp < (hovered.mpCost ?? 0) && (
+          {hovered.id === 'teleport' && player.mp < (hovered.mpCost ?? 0) && player.hp >= (hovered.mpCost ?? 0) && (
+            <div className="text-yellow-400 text-xs mt-1">Will use HP (not enough MP).</div>
+          )}
+          {hovered.id === 'teleport' && player.mp < (hovered.mpCost ?? 0) && player.hp < (hovered.mpCost ?? 0) && (
+            <div className="text-red-400 text-xs mt-1">Warning: Will use HP and may kill you!</div>
+          )}
+          {hovered.id !== 'teleport' && (hovered.mpCost ?? 0) > 0 && player.mp < (hovered.mpCost ?? 0) && (
             <div className="text-red-400 text-xs mt-1">Not enough MP.</div>
           )}
         </div>
