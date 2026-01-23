@@ -12,6 +12,7 @@ import {
 import { validateFloor } from './validate';
 import { getRandomItem } from '../data/itemLoader';
 import { FLOOR_TEMPLATES, shouldSpawnTemplate, templateToFloor } from './templates';
+import { createEnemyData, selectEnemyType } from './enemyTypes';
 
 function indexFromPos(pos: Vec2, width: number) {
   return pos.y * width + pos.x;
@@ -135,30 +136,19 @@ export function generateFloor(seed: string | number, cfg?: Partial<GenerationCon
     if (enemyCandidates.length === 0) break;
     const pick = enemyCandidates[Math.floor(rng() * enemyCandidates.length)];
     // avoid placing two entities on same tile
-  if (occupied.has(`${pick.pos.x},${pick.pos.y}`)) continue;
+    if (occupied.has(`${pick.pos.x},${pick.pos.y}`)) continue;
     
-    // Calculate enemy stats based on floor number and enemy index
+    // Select enemy type based on floor number
+    const enemyType = selectEnemyType(floorNumber, rng);
+    
+    // Calculate enemy level based on floor number and enemy index
     // We distribute difficulty: early enemies in a floor are weaker, later ones stronger
-    // This creates variety within each floor
     const difficultyVariation = (e / Math.max(1, config.enemyBudget - 1)); // 0 to 1
     const floorDifficulty = floorNumber;
     const enemyLevel = Math.max(1, Math.floor(floorDifficulty * (0.7 + 0.6 * difficultyVariation)));
     
-    // Stats scale with enemy level
-    const baseHp = 5 + (2 * enemyLevel);
-    const baseDamage = 5 + Math.floor(enemyLevel / 2);
-    
-    const enemyData: EnemyData = {
-      hp: baseHp,
-      maxHp: baseHp,
-      damage: baseDamage,
-      armor: 0, // Armor could scale later
-      xpValue: 5 * enemyLevel,
-      level: enemyLevel,
-      ai: 'patrol',
-      spawnPos: { ...pick.pos },
-      state: { mode: 'patrol', patrolIndex: 0, lastHp: baseHp }
-    };
+    // Create enemy data using the type system
+    const enemyData = createEnemyData(enemyType, enemyLevel, pick.pos);
 
     entities.push({ 
       id: `enemy-${floorId}-${e}`, 

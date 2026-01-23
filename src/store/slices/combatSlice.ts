@@ -40,6 +40,7 @@ export const createCombatSlice = (
         armor: state.player.armor,
         weaponDamage: state.player.weaponDamage,
         spellDamage: state.player.spellDamage,
+        hpPerFloor: 0,
       },
       state.player.inventory
     );
@@ -47,6 +48,7 @@ export const createCombatSlice = (
     const enemyProcessed = runEnemyTurnModule({
       floor: state.floor,
       playerPos: state.player.pos,
+      turnCount: state.turnCount,
     });
     set(enemyProcessed);
 
@@ -88,6 +90,43 @@ export const createCombatSlice = (
       }
     }
 
+    // Apply enemy ability damage (like mage fireball)
+    if (enemyProcessed.abilityResults && enemyProcessed.abilityResults.length > 0) {
+      let abilityDamage = 0;
+      const abilityFloaters: any[] = [];
+
+      for (const abilityResult of enemyProcessed.abilityResults) {
+        const dmg = abilityResult.playerDamage || 0;
+        const finalDmg = Math.max(0, dmg - effective.armor);
+        abilityDamage += finalDmg;
+
+        // Create floater from visual effect info
+        if (abilityResult.visualEffect) {
+          abilityFloaters.push({
+            id: makeCombatTextId('ability-dmg'),
+            kind: 'damage',
+            amount: finalDmg,
+            from: abilityResult.visualEffect.from,
+            to: abilityResult.visualEffect.to || state.player.pos,
+            icon: abilityResult.visualEffect.icon,
+            createdAt: Date.now(),
+            ttlMs: 800,
+          });
+        }
+      }
+
+      if (abilityFloaters.length > 0) {
+        get()._enqueueCombatText(abilityFloaters);
+      }
+
+      if (abilityDamage > 0) {
+        set((s: any) => ({
+          player: { ...s.player, hp: Math.max(0, s.player.hp - abilityDamage) },
+        }));
+        get()._triggerDeathIfNeeded();
+      }
+    }
+
     // Auto-clear transient aggro/attack interaction after a brief delay
     if (enemyProcessed.interaction?.type === 'enemy-aggro' || enemyProcessed.interaction?.type === 'enemy-attack') {
       setTimeout(() => {
@@ -110,6 +149,7 @@ export const createCombatSlice = (
         armor: player.armor,
         weaponDamage: player.weaponDamage,
         spellDamage: player.spellDamage,
+        hpPerFloor: 0,
       },
       player.inventory
     );

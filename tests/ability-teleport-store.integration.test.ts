@@ -21,13 +21,14 @@ describe('teleport ability store integration', () => {
     const store = useGameStore.getState();
     store.startNewGame('teleport-test-1');
 
-    // Give player the teleport ability
+    // Give player the teleport ability and clear enemies to test ability cost only
     useGameStore.setState((s) => {
       const inv = [...s.player.inventory];
       inv[0] = teleportItem();
       return { 
         player: { ...s.player, mp: 50, inventory: inv },
         abilityBar: getAbilityBarFromInventory(inv, 8),
+        floor: s.floor ? { ...s.floor, entities: [] } : s.floor, // Clear enemies
       };
     });
 
@@ -53,13 +54,14 @@ describe('teleport ability store integration', () => {
     const store = useGameStore.getState();
     store.startNewGame('teleport-test-2');
 
-    // Give player the teleport ability with low MP
+    // Give player the teleport ability with low MP and clear enemies
     useGameStore.setState((s) => {
       const inv = [...s.player.inventory];
       inv[0] = teleportItem();
       return { 
         player: { ...s.player, mp: 10, hp: 100, inventory: inv },
         abilityBar: getAbilityBarFromInventory(inv, 8),
+        floor: s.floor ? { ...s.floor, entities: [] } : s.floor, // Clear enemies
       };
     });
 

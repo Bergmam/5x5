@@ -3,6 +3,7 @@ import { useGameStore } from '../store/gameStore';
 import { DIRECTIONS } from '../game/movement';
 import { getTile } from '../game/movement';
 import { Tile, EnemyData } from '../game/types';
+import { getEnemyType } from '../game/enemyTypes';
 import InventoryPanel from './InventoryPanel';
 import ShopPanel from './ShopPanel';
 import ItemTooltip from './ItemTooltip';
@@ -250,6 +251,7 @@ export function GameBoard() {
       armor: player.armor,
       weaponDamage: player.weaponDamage,
       spellDamage: player.spellDamage,
+      hpPerFloor: 0,
     },
     player.inventory
   );
@@ -444,6 +446,11 @@ export function GameBoard() {
             {floor.entities.map((e) => {
               if (e.kind === 'enemy') {
                 const data = e.data as EnemyData;
+                
+                // Get enemy type to display correct icon
+                const enemyType = data.typeId ? getEnemyType(data.typeId) : null;
+                const enemyIcon = enemyType?.icon || '⚔'; // Fallback to sword for old enemies
+                
                 const showAggro =
                   interaction?.type === 'enemy-aggro' &&
                   (interaction.aggroEnemyIds?.includes(e.id) ?? false);
@@ -463,7 +470,7 @@ export function GameBoard() {
                       transition: 'left 180ms ease-out, top 180ms ease-out, transform 80ms cubic-bezier(0.22, 1, 0.36, 1)',
                       transform: isAttacking && attackElapsed < 90 ? `translate(${attackDx * 14}px, ${attackDy * 14}px)` : 'translate(0, 0)'
                     }}
-                    title={`Enemy (${e.pos.x}, ${e.pos.y})`}
+                    title={`${enemyType?.name || 'Enemy'} (${e.pos.x}, ${e.pos.y})`}
                     onMouseEnter={(event) => {
                       const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
                       setHoveredEnemy({
@@ -491,7 +498,7 @@ export function GameBoard() {
                         <span className="text-yellow-300 animate-pulse enemy-jump" style={{ display: 'inline-block' }}>!</span>
                       </div>
                     )}
-                    ⚔
+                    {enemyIcon}
                   </div>
                 );
               }

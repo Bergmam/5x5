@@ -19,18 +19,38 @@ export interface Tile {
 }
 
 export interface EnemyData {
+  // Identity
+  typeId?: import('./enemyTypes').EnemyTypeId; // NEW: Which enemy type (optional for backward compatibility)
+  
+  // Stats
   hp: number;
   maxHp: number;
   damage: number;
   armor: number;
   xpValue: number;
   level: number;
+  
+  // AI (deprecated but kept for backward compatibility)
   ai?: 'static' | 'patrol' | 'follow';
   spawnPos?: Vec2;
+  
+  // State
   state?: {
     mode: 'static' | 'patrol' | 'follow';
     patrolIndex?: number;
     lastHp?: number;
+    
+    // NEW: Ability tracking
+    lastMoveTurn?: number;     // For slow enemies
+    abilities?: {
+      [abilityId: string]: {
+        lastUsedTurn: number;
+      };
+    };
+    
+    // NEW: Attack pattern state
+    attackCooldown?: number;   // Turns until can attack again
+    preferredDistance?: number; // For maintain-distance enemies
   };
 }
 
