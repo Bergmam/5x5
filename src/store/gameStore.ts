@@ -71,6 +71,7 @@ function getEffectivePlayerStats(player: Player): PlayerStats {
       armor: player.armor,
       weaponDamage: player.weaponDamage,
       spellDamage: player.spellDamage,
+      hpPerFloor: 0, // Base value, will be calculated from Vitality Charms
     },
     player.inventory
   );

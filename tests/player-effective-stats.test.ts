@@ -10,6 +10,7 @@ describe('effective player stats', () => {
       armor: 0,
       weaponDamage: 10,
       spellDamage: 5,
+      hpPerFloor: 0,
     };
 
     const inv: (InventoryItem | null)[] = Array(25).fill(null);
@@ -51,6 +52,7 @@ describe('effective player stats', () => {
       armor: 5,
       weaponDamage: 20,
       spellDamage: 10,
+      hpPerFloor: 0,
     });
   });
 
@@ -61,6 +63,7 @@ describe('effective player stats', () => {
       armor: 5,
       weaponDamage: 15,
       spellDamage: 20,
+      hpPerFloor: 0,
     };
 
     const inv: (InventoryItem | null)[] = [

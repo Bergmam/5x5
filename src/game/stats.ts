@@ -2,7 +2,7 @@ import type { InventoryItem } from './types';
 
 // Single source of truth for player stat keys.
 // Add new keys here and the rest of the system (UI + calc) should be able to follow.
-export type PlayerStatKey = 'maxHp' | 'maxMp' | 'armor' | 'weaponDamage' | 'spellDamage';
+export type PlayerStatKey = 'maxHp' | 'maxMp' | 'armor' | 'weaponDamage' | 'spellDamage' | 'hpPerFloor';
 
 export const PLAYER_STAT_ORDER: PlayerStatKey[] = [
   'maxHp',
@@ -10,6 +10,7 @@ export const PLAYER_STAT_ORDER: PlayerStatKey[] = [
   'weaponDamage',
   'spellDamage',
   'armor',
+  'hpPerFloor',
 ];
 
 export const PLAYER_STAT_LABELS: Record<PlayerStatKey, string> = {
@@ -18,6 +19,7 @@ export const PLAYER_STAT_LABELS: Record<PlayerStatKey, string> = {
   weaponDamage: 'Weapon Damage',
   spellDamage: 'Spell Damage',
   armor: 'Armor',
+  hpPerFloor: 'HP regained per Floor',
 };
 
 export type PlayerStats = Record<PlayerStatKey, number>;
@@ -29,6 +31,7 @@ export function emptyPlayerStats(): PlayerStats {
     armor: 0,
     weaponDamage: 0,
     spellDamage: 0,
+    hpPerFloor: 0,
   };
 }
 
@@ -54,5 +57,11 @@ export function getInventoryStatBonuses(inventory: (InventoryItem | null)[]): Pa
 }
 
 export function calculateEffectiveStats(base: PlayerStats, inventory: (InventoryItem | null)[]): PlayerStats {
-  return addStats(base, getInventoryStatBonuses(inventory));
+  const stats = addStats(base, getInventoryStatBonuses(inventory));
+  
+  // Calculate HP per floor from Vitality Charms (5 HP per charm)
+  const vitalityCharmCount = inventory.filter((i) => i?.id === 'vitality-charm').length;
+  stats.hpPerFloor = 5 * vitalityCharmCount;
+  
+  return stats;
 }
