@@ -52,7 +52,7 @@ describe('ability: shockwave', () => {
       floor,
       playerPos: { x: 4, y: 4 },
       facing: null,
-      effectiveStats: { maxHp: 100, maxMp: 50, armor: 0, weaponDamage: 10, spellDamage: 20 },
+      effectiveStats: { maxHp: 100, maxMp: 50, armor: 0, weaponDamage: 10, spellDamage: 20, hpPerFloor: 0 },
     });
 
     expect(res.didCast).toBe(true);

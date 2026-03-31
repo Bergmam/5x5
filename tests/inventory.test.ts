@@ -88,6 +88,7 @@ describe('Inventory System', () => {
       armor: 0,
       weaponDamage: 10,
       spellDamage: 5,
+      hpPerFloor: 0,
     };
     testPlayer = {
       hp: 50,

@@ -21,6 +21,7 @@ function clampResourcesToEffectiveMax(player: Player): Player {
       armor: player.armor,
       weaponDamage: player.weaponDamage,
       spellDamage: player.spellDamage,
+      hpPerFloor: 0,
     },
     player.inventory
   );
